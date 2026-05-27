@@ -4,6 +4,8 @@ import { useState } from "react";
 import { deleteAsset, updateAsset } from "../api/assets";
 import type { Asset } from "../api/assets";
 
+type PortDetail = NonNullable<Asset["port_details"]>[number];
+
 type AssetTableProps = {
   assets: Asset[];
   onChanged: () => void;
@@ -30,7 +32,19 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
   }
 
   async function saveAsset(assetId: string) {
-    await updateAsset(drafts[assetId]);
+    const draft = drafts[assetId];
+    const portDetails = draft.port_details ?? [];
+    await updateAsset({
+      ...draft,
+      open_ports: portDetails.map((detail) => detail.port).filter((port) => Number.isInteger(port)),
+      services: Array.from(
+        new Set(
+          portDetails
+            .map((detail) => detail.service?.trim())
+            .filter((service): service is string => Boolean(service)),
+        ),
+      ),
+    });
     setEditingId(null);
     onChanged();
   }
@@ -38,6 +52,52 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
   async function removeAsset(assetId: string) {
     await deleteAsset(assetId);
     onChanged();
+  }
+
+  function displayedPortDetails(asset: Asset): PortDetail[] {
+    if (asset.port_details && asset.port_details.length > 0) {
+      return asset.port_details;
+    }
+    return asset.open_ports.map((port, index) => ({
+      port,
+      protocol: "tcp",
+      service: asset.services[index] ?? "?",
+      version: "",
+      scripts: [],
+    }));
+  }
+
+  function updatePortDetail(assetId: string, index: number, patch: Partial<PortDetail>) {
+    const asset = drafts[assetId] ?? assets.find((candidate) => candidate.id === assetId);
+    if (!asset) {
+      return;
+    }
+    const portDetails = [...displayedPortDetails(asset)];
+    portDetails[index] = { ...portDetails[index], ...patch };
+    updateDraft(assetId, { port_details: portDetails });
+  }
+
+  function addPortDetail(assetId: string) {
+    const asset = drafts[assetId] ?? assets.find((candidate) => candidate.id === assetId);
+    if (!asset) {
+      return;
+    }
+    updateDraft(assetId, {
+      port_details: [
+        ...displayedPortDetails(asset),
+        { port: 0, protocol: "tcp", service: "?", version: "", scripts: [] },
+      ],
+    });
+  }
+
+  function removePortDetail(assetId: string, index: number) {
+    const asset = drafts[assetId] ?? assets.find((candidate) => candidate.id === assetId);
+    if (!asset) {
+      return;
+    }
+    updateDraft(assetId, {
+      port_details: displayedPortDetails(asset).filter((_, detailIndex) => detailIndex !== index),
+    });
   }
 
   return (
@@ -75,29 +135,58 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                     onChange={(event) => updateDraft(asset.id, { domain: event.target.value })}
                   />
                   <input
-                    value={draft.services.join(", ")}
-                    placeholder="servicios"
-                    onChange={(event) =>
-                      updateDraft(asset.id, {
-                        services: event.target.value
-                          .split(",")
-                          .map((service) => service.trim())
-                          .filter(Boolean),
-                      })
-                    }
+                    value={draft.kind}
+                    placeholder="tipo"
+                    onChange={(event) => updateDraft(asset.id, { kind: event.target.value as Asset["kind"] })}
                   />
-                  <input
-                    value={draft.open_ports.join(", ")}
-                    placeholder="puertos"
-                    onChange={(event) =>
-                      updateDraft(asset.id, {
-                        open_ports: event.target.value
-                          .split(",")
-                          .map((port) => Number(port.trim()))
-                          .filter((port) => Number.isInteger(port)),
-                      })
-                    }
-                  />
+                  <div className="service-editor">
+                    {displayedPortDetails(draft).map((detail, index) => (
+                      <div className="service-chip editable-chip" key={`${detail.port}-${index}`}>
+                        <div className="chip-fields">
+                          <input
+                            value={detail.port}
+                            aria-label="Puerto"
+                            type="number"
+                            onChange={(event) =>
+                              updatePortDetail(asset.id, index, { port: Number(event.target.value) })
+                            }
+                          />
+                          <input
+                            value={detail.protocol ?? "tcp"}
+                            aria-label="Protocolo"
+                            onChange={(event) =>
+                              updatePortDetail(asset.id, index, { protocol: event.target.value })
+                            }
+                          />
+                          <input
+                            value={detail.service ?? "?"}
+                            aria-label="Servicio"
+                            onChange={(event) =>
+                              updatePortDetail(asset.id, index, { service: event.target.value || "?" })
+                            }
+                          />
+                        </div>
+                        <input
+                          value={detail.version ?? ""}
+                          aria-label="Version"
+                          placeholder="version"
+                          onChange={(event) =>
+                            updatePortDetail(asset.id, index, { version: event.target.value })
+                          }
+                        />
+                        <button
+                          className="chip-delete"
+                          type="button"
+                          onClick={() => removePortDetail(asset.id, index)}
+                        >
+                          quitar
+                        </button>
+                      </div>
+                    ))}
+                    <button className="chip-add" type="button" onClick={() => addPortDetail(asset.id)}>
+                      Añadir puerto
+                    </button>
+                  </div>
                   <div className="row-actions">
                     <button
                       aria-label="Guardar entidad"
@@ -123,11 +212,11 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                   <span>{asset.ip_address}</span>
                   <span>{asset.domain || "sin dominio"}</span>
                   <div className="service-summary">
-                    {asset.port_details.length > 0 ? (
-                      asset.port_details.map((detail) => (
+                    {displayedPortDetails(asset).length > 0 ? (
+                      displayedPortDetails(asset).map((detail) => (
                         <span className="service-chip" key={`${detail.port}-${detail.protocol}`}>
                           <strong>{detail.port}/{detail.protocol ?? "tcp"}</strong>
-                          {detail.service && <> {detail.service}</>}
+                          <> {detail.service || "?"}</>
                           {detail.version && <> · {detail.version}</>}
                           {detail.scripts && detail.scripts.length > 0 && (
                             <small>{detail.scripts.slice(0, 2).join(" · ")}</small>

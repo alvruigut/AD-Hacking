@@ -20,6 +20,76 @@ from app.schemas.finding import FindingCreate, Severity
 from app.services.asset_service import asset_service
 from app.services.finding_service import finding_service
 
+KNOWN_PORT_SERVICES = {
+    20: "ftp-data",
+    21: "ftp",
+    22: "ssh",
+    23: "telnet",
+    25: "smtp",
+    53: "dns",
+    67: "dhcp",
+    68: "dhcp",
+    69: "tftp",
+    80: "http",
+    88: "kerberos",
+    110: "pop3",
+    111: "rpcbind",
+    123: "ntp",
+    135: "msrpc",
+    137: "netbios-ns",
+    138: "netbios-dgm",
+    139: "netbios-ssn",
+    143: "imap",
+    161: "snmp",
+    162: "snmptrap",
+    389: "ldap",
+    443: "https",
+    445: "smb",
+    464: "kpasswd",
+    465: "smtps",
+    500: "isakmp",
+    514: "syslog",
+    587: "submission",
+    593: "rpc-http",
+    636: "ldaps",
+    873: "rsync",
+    902: "vmware-auth",
+    989: "ftps-data",
+    990: "ftps",
+    993: "imaps",
+    995: "pop3s",
+    1433: "mssql",
+    1521: "oracle",
+    2049: "nfs",
+    3268: "ldap-gc",
+    3269: "ldaps-gc",
+    3306: "mysql",
+    3389: "rdp",
+    5432: "postgresql",
+    5601: "kibana",
+    5900: "vnc",
+    5985: "winrm-http",
+    5986: "winrm-https",
+    6379: "redis",
+    8000: "http-alt",
+    8080: "http-proxy",
+    8443: "https-alt",
+    9200: "elasticsearch",
+    9389: "adws",
+    11211: "memcached",
+    27017: "mongodb",
+}
+
+NMAP_SERVICE_ALIASES = {
+    "domain": "dns",
+    "kerberos-sec": "kerberos",
+    "kpasswd5": "kpasswd",
+    "microsoft-ds": "smb",
+    "ms-wbt-server": "rdp",
+    "netbios-ssn": "smb",
+    "submission": "smtp-submission",
+}
+
 
 class AgentService:
     def __init__(self) -> None:
@@ -178,6 +248,15 @@ class AgentService:
                     kind=AssetKind.server,
                     open_ports=[445],
                     services=["smb"],
+                    port_details=[
+                        {
+                            "port": 445,
+                            "protocol": "tcp",
+                            "service": "smb",
+                            "version": "",
+                            "scripts": [],
+                        }
+                    ],
                     source_tool="netexec",
                     notes=line.strip(),
                 )
@@ -357,11 +436,13 @@ class AgentService:
                 flags=re.IGNORECASE,
             )
             if port_match:
+                port = int(port_match.group(1))
+                service = self._normalize_service(port, port_match.group(3))
                 current_script_is_relevant = False
                 current = {
-                    "port": int(port_match.group(1)),
+                    "port": port,
                     "protocol": port_match.group(2).lower(),
-                    "service": port_match.group(3),
+                    "service": service,
                     "version": self._clean_nmap_value(port_match.group(4) or ""),
                     "scripts": [],
                 }
@@ -404,6 +485,14 @@ class AgentService:
 
     def _clean_nmap_value(self, value: str) -> str:
         return re.sub(r"\s+", " ", value).strip()
+
+    def _normalize_service(self, port: int, service: str | None) -> str:
+        cleaned = (service or "").strip().lower()
+        if cleaned in NMAP_SERVICE_ALIASES:
+            return NMAP_SERVICE_ALIASES[cleaned]
+        if cleaned and cleaned not in {"unknown", "tcpwrapped", "?", "-"}:
+            return cleaned
+        return KNOWN_PORT_SERVICES.get(port, "?")
 
     def _summarize_port_detail(self, detail: dict[str, str | int | list[str]]) -> str:
         version = f" - {detail['version']}" if detail.get("version") else ""

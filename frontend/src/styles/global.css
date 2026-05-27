@@ -602,6 +602,51 @@ button {
   padding: 7px 8px;
 }
 
+.service-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: span 2;
+}
+
+.editable-chip {
+  min-width: 270px;
+}
+
+.chip-fields {
+  display: grid;
+  grid-template-columns: 72px 72px minmax(90px, 1fr);
+  gap: 6px;
+}
+
+.service-chip input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.62);
+  color: #f8fafc;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font: inherit;
+}
+
+.chip-add,
+.chip-delete {
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
+.chip-add {
+  align-self: end;
+  min-height: 34px;
+}
+
+.chip-delete {
+  border-color: rgba(225, 29, 72, 0.38);
+  background: rgba(127, 29, 29, 0.24);
+  color: #fecdd3;
+}
+
 .service-chip strong {
   color: #f8fafc;
 }
