@@ -1,12 +1,20 @@
 from datetime import datetime, timezone
 
 from app.schemas.finding import FindingCreate, FindingRead, FindingStatus, Severity
+from app.services.json_store import json_store
 
 
 class FindingService:
     def __init__(self) -> None:
-        self._findings: dict[str, FindingRead] = {}
-        self._seed()
+        self._findings: dict[str, FindingRead] = {
+            finding.id: finding
+            for finding in [
+                FindingRead.model_validate(item)
+                for item in json_store.read().get("findings", [])
+            ]
+        }
+        if not self._findings:
+            self._seed()
 
     def list(self) -> list[FindingRead]:
         return sorted(self._findings.values(), key=lambda finding: finding.created_at, reverse=True)
@@ -14,6 +22,7 @@ class FindingService:
     def create(self, payload: FindingCreate) -> FindingRead:
         finding = FindingRead(**payload.model_dump())
         self._findings[finding.id] = finding
+        self._save()
         return finding
 
     def update_status(self, finding_id: str, finding_status: FindingStatus) -> FindingRead | None:
@@ -24,6 +33,7 @@ class FindingService:
             update={"status": finding_status, "updated_at": datetime.now(timezone.utc)}
         )
         self._findings[finding_id] = updated
+        self._save()
         return updated
 
     def update_severity(self, finding_id: str, severity: Severity) -> FindingRead | None:
@@ -32,6 +42,7 @@ class FindingService:
             return None
         updated = finding.model_copy(update={"severity": severity, "updated_at": datetime.now(timezone.utc)})
         self._findings[finding_id] = updated
+        self._save()
         return updated
 
     def _seed(self) -> None:
@@ -57,6 +68,12 @@ class FindingService:
         ]
         for sample in samples:
             self.create(sample)
+
+    def _save(self) -> None:
+        json_store.write_section(
+            "findings",
+            [finding.model_dump(mode="json") for finding in self._findings.values()],
+        )
 
 
 finding_service = FindingService()

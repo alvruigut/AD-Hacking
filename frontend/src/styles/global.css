@@ -214,6 +214,42 @@ button {
   gap: 10px;
 }
 
+.agent-flow {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.agent-step {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.34);
+  padding: 14px;
+}
+
+.step-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.step-heading svg {
+  color: #5eead4;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.step-heading strong,
+.step-heading span {
+  display: block;
+}
+
+.step-heading span {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
 .agent-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -231,7 +267,8 @@ button {
 }
 
 .agent-form input,
-.agent-form select {
+.agent-form select,
+.agent-form textarea {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(2, 6, 23, 0.62);
@@ -243,6 +280,13 @@ button {
 
 .agent-form select {
   appearance: none;
+}
+
+.agent-form textarea {
+  min-height: 42px;
+  resize: vertical;
+  font:
+    13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 .agent-form select:disabled {

@@ -41,44 +41,43 @@ class AgentService:
         domain_arg = f" -d {request.domain}" if request.domain else ""
         scan_label = "target" if request.target_mode == "ip" else "initial"
 
-        commands = [
-            AgentCommand(
-                phase="network_discovery",
-                tool="rustscan",
-                command=(
-                    f"rustscan -a {target} --batch-size {rustscan_batch} "
-                    f"--ulimit 5000 -- -sV -oA scans/rustscan-{scan_label}"
+        if request.target_mode == "cidr":
+            commands = [
+                AgentCommand(
+                    phase="network_discovery",
+                    tool="nxc",
+                    command=f"nxc smb {target}",
+                    purpose="Mapear hosts SMB del rango autorizado y guardar IP, hostname y dominio detectados.",
+                    expected_output="Salida SMB de NetExec con hosts Windows/AD detectados.",
+                )
+            ]
+        else:
+            commands = [
+                AgentCommand(
+                    phase="network_discovery",
+                    tool="rustscan",
+                    command=(
+                        f"rustscan -a {target} --batch-size {rustscan_batch} "
+                        f"--ulimit 5000 -- -sV -oA scans/rustscan-{scan_label}"
+                    ),
+                    purpose="Enumerar puertos TCP del target seleccionado.",
+                    expected_output=f"scans/rustscan-{scan_label}.gnmap/xml/nmap",
                 ),
-                purpose=(
-                    "Enumerar puertos TCP del target seleccionado."
-                    if request.target_mode == "ip"
-                    else "Descubrir hosts vivos y puertos TCP relevantes dentro del scope autorizado."
+                AgentCommand(
+                    phase="ad_host_filter",
+                    tool="nxc",
+                    command=f"nxc smb {target}{domain_arg} --shares",
+                    purpose="Enumerar SMB, hostname, dominio y shares del target seleccionado.",
+                    expected_output="Salida de hosts SMB con hostname, dominio y signing.",
                 ),
-                expected_output=f"scans/rustscan-{scan_label}.gnmap/xml/nmap",
-            ),
-            AgentCommand(
-                phase="ad_host_filter",
-                tool="netexec",
-                command=f"netexec smb {target}{domain_arg} --shares",
-                purpose=(
-                    "Enumerar SMB, hostname, dominio y shares del target seleccionado."
-                    if request.target_mode == "ip"
-                    else "Identificar hosts Windows/SMB y separar equipos probables del dominio."
+                AgentCommand(
+                    phase="ldap_probe",
+                    tool="nxc",
+                    command=f"nxc ldap {target}{domain_arg}",
+                    purpose="Comprobar LDAP en la IP seleccionada y extraer contexto de dominio si aplica.",
+                    expected_output="Salida LDAP con dominio, hostname y DCs detectados.",
                 ),
-                expected_output="Salida de hosts SMB con hostname, dominio y signing.",
-            ),
-            AgentCommand(
-                phase="ldap_probe",
-                tool="netexec",
-                command=f"netexec ldap {target}{domain_arg}",
-                purpose=(
-                    "Comprobar LDAP en la IP seleccionada y extraer contexto de dominio si aplica."
-                    if request.target_mode == "ip"
-                    else "Confirmar controladores de dominio y servicios LDAP expuestos."
-                ),
-                expected_output="Salida LDAP con dominio, hostname y DCs detectados.",
-            ),
-        ]
+            ]
 
         return AgentPlan(
             scope_cidr=request.scope_cidr,
