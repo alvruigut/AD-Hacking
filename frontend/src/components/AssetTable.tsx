@@ -86,6 +86,18 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                       })
                     }
                   />
+                  <input
+                    value={draft.open_ports.join(", ")}
+                    placeholder="puertos"
+                    onChange={(event) =>
+                      updateDraft(asset.id, {
+                        open_ports: event.target.value
+                          .split(",")
+                          .map((port) => Number(port.trim()))
+                          .filter((port) => Number.isInteger(port)),
+                      })
+                    }
+                  />
                   <div className="row-actions">
                     <button
                       aria-label="Guardar entidad"
@@ -110,7 +122,22 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                   <strong>{asset.hostname || asset.ip_address}</strong>
                   <span>{asset.ip_address}</span>
                   <span>{asset.domain || "sin dominio"}</span>
-                  <span>{asset.services.join(", ") || "sin servicios"}</span>
+                  <div className="service-summary">
+                    {asset.port_details.length > 0 ? (
+                      asset.port_details.map((detail) => (
+                        <span className="service-chip" key={`${detail.port}-${detail.protocol}`}>
+                          <strong>{detail.port}/{detail.protocol ?? "tcp"}</strong>
+                          {detail.service && <> {detail.service}</>}
+                          {detail.version && <> · {detail.version}</>}
+                          {detail.scripts && detail.scripts.length > 0 && (
+                            <small>{detail.scripts.slice(0, 2).join(" · ")}</small>
+                          )}
+                        </span>
+                      ))
+                    ) : (
+                      <span>{asset.services.join(", ") || "sin servicios"}</span>
+                    )}
+                  </div>
                   <div className="row-actions">
                     <button
                       aria-label="Editar entidad"

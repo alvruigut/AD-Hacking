@@ -30,9 +30,9 @@ const defaultTools: ToolTemplate[] = [
   {
     id: "recon-nmap-services",
     group: "Recon",
-    name: "Servicios TCP",
-    tool: "nmap",
-    command: "nmap -sV -Pn 10.10.10.10",
+    name: "RustScan + scripts/versiones",
+    tool: "rustscan",
+    command: "rustscan -a 10.10.10.10 --no-banner -- -sCV",
     authorizedTarget: "10.10.10.10",
   },
 ];

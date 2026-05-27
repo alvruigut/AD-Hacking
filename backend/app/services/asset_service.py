@@ -27,11 +27,13 @@ class AssetService:
 
         merged_ports = sorted(set(existing.open_ports + payload.open_ports))
         merged_services = sorted(set(existing.services + payload.services))
+        merged_port_details = self._merge_port_details(existing.port_details, payload.port_details)
         updated = existing.model_copy(
             update={
                 **payload.model_dump(exclude_none=True),
                 "open_ports": merged_ports,
                 "services": merged_services,
+                "port_details": merged_port_details,
                 "updated_at": datetime.now(timezone.utc),
             }
         )
@@ -64,6 +66,20 @@ class AssetService:
             if asset.ip_address == ip_address:
                 return asset
         return None
+
+    def _merge_port_details(
+        self,
+        current_details: list[dict[str, str | int | list[str]]],
+        next_details: list[dict[str, str | int | list[str]]],
+    ) -> list[dict[str, str | int | list[str]]]:
+        merged: dict[str, dict[str, str | int | list[str]]] = {}
+        for detail in current_details + next_details:
+            port = detail.get("port")
+            protocol = detail.get("protocol", "tcp")
+            if port is None:
+                continue
+            merged[f"{port}/{protocol}"] = detail
+        return sorted(merged.values(), key=lambda item: int(item.get("port", 0)))
 
     def _save(self) -> None:
         json_store.write_section(

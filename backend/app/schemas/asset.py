@@ -19,6 +19,7 @@ class AssetCreate(BaseModel):
     kind: AssetKind = AssetKind.unknown
     open_ports: list[int] = Field(default_factory=list)
     services: list[str] = Field(default_factory=list)
+    port_details: list[dict[str, str | int | list[str]]] = Field(default_factory=list)
     source_tool: str | None = None
     notes: str | None = None
 

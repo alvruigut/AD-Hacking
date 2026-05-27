@@ -8,6 +8,13 @@ export type Asset = {
   kind: AssetKind;
   open_ports: number[];
   services: string[];
+  port_details: Array<{
+    port: number;
+    protocol?: string;
+    service?: string;
+    version?: string;
+    scripts?: string[];
+  }>;
   source_tool?: string | null;
   notes?: string | null;
   created_at: string;
@@ -35,6 +42,7 @@ export async function updateAsset(asset: Asset): Promise<Asset> {
       kind: asset.kind,
       open_ports: asset.open_ports,
       services: asset.services,
+      port_details: asset.port_details,
       source_tool: asset.source_tool || null,
       notes: asset.notes || null,
     }),

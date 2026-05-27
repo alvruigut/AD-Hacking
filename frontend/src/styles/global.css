@@ -573,7 +573,7 @@ button {
 
 .asset-row {
   display: grid;
-  grid-template-columns: 1.2fr 140px 1fr 1fr auto;
+  grid-template-columns: 1.1fr 130px 1fr minmax(180px, 2fr) minmax(110px, 0.8fr) auto;
   gap: 10px;
   align-items: center;
   padding: 12px 14px;
@@ -584,6 +584,31 @@ button {
 
 .asset-row span {
   color: #94a3b8;
+}
+
+.service-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  grid-column: span 2;
+}
+
+.service-chip {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  color: #cbd5e1;
+  padding: 7px 8px;
+}
+
+.service-chip strong {
+  color: #f8fafc;
+}
+
+.service-chip small {
+  color: #94a3b8;
+  max-width: 420px;
 }
 
 .asset-row input {

@@ -37,10 +37,8 @@ class AgentService:
         }
 
     def build_plan(self, request: AgentPlanRequest) -> AgentPlan:
-        rustscan_batch = "1500" if request.rate_profile == "fast" else "700"
         target = request.target_ip if request.target_mode == "ip" and request.target_ip else request.scope_cidr
         domain_arg = f" -d {request.domain}" if request.domain else ""
-        scan_label = "target" if request.target_mode == "ip" else "initial"
 
         if request.target_mode == "cidr":
             commands = [
@@ -57,12 +55,9 @@ class AgentService:
                 AgentCommand(
                     phase="network_discovery",
                     tool="rustscan",
-                    command=(
-                        f"rustscan -a {target} --batch-size {rustscan_batch} "
-                        f"--ulimit 5000 -- -sV -oA scans/rustscan-{scan_label}"
-                    ),
-                    purpose="Enumerar puertos TCP del target seleccionado.",
-                    expected_output=f"scans/rustscan-{scan_label}.gnmap/xml/nmap",
+                    command=f"rustscan -a {target} --no-banner -- -sCV",
+                    purpose="Enumerar puertos, servicios, versiones y scripts relevantes del target.",
+                    expected_output="Salida RustScan/Nmap sintetizada en la entidad seleccionada.",
                 ),
                 AgentCommand(
                     phase="ad_host_filter",
@@ -263,6 +258,10 @@ class AgentService:
             tool_name = args[0].split("/")[-1]
             if auto_ingest and tool_name in {"netexec", "nxc"} and len(args) > 1 and args[1] == "smb":
                 self.ingest_netexec_smb(output)
+            if auto_ingest and tool_name == "rustscan":
+                target_ip = self._extract_rustscan_target(args)
+                if target_ip:
+                    self.ingest_rustscan_nmap(target_ip, output)
             status = ToolRunStatus.completed if process.returncode == 0 else ToolRunStatus.failed
             self._update_run(
                 tool_run_id,
@@ -288,6 +287,131 @@ class AgentService:
         finally:
             with self._lock:
                 self._processes.pop(tool_run_id, None)
+
+    def ingest_rustscan_nmap(self, target_ip: str, raw_output: str) -> AssetRead | None:
+        port_details = self._parse_nmap_services(raw_output)
+        if not port_details:
+            return None
+
+        services = [
+            str(detail["service"])
+            for detail in port_details
+            if detail.get("service") and detail.get("service") != "unknown"
+        ]
+        summary_lines = [
+            self._summarize_port_detail(detail)
+            for detail in port_details
+        ]
+        asset = asset_service.upsert(
+            AssetCreate(
+                ip_address=target_ip,
+                open_ports=[int(detail["port"]) for detail in port_details],
+                services=services,
+                port_details=port_details,
+                source_tool="rustscan",
+                notes="\n".join(summary_lines),
+            )
+        )
+        finding_service.create(
+            FindingCreate(
+                title=f"Servicios expuestos en {asset.hostname or target_ip}",
+                description=f"RustScan/Nmap detecto {len(port_details)} puertos abiertos en {target_ip}.",
+                severity=Severity.info,
+                affected_entities=[asset.hostname or target_ip],
+                evidence=summary_lines,
+                source_tool="rustscan",
+                recommendation="Revisar servicios AD expuestos, versiones y scripts destacados.",
+            )
+        )
+        return asset
+
+    def _extract_rustscan_target(self, args: list[str]) -> str | None:
+        for index, arg in enumerate(args):
+            if arg == "-a" and index + 1 < len(args):
+                return args[index + 1]
+            if arg.startswith("-a") and len(arg) > 2:
+                return arg[2:]
+        return None
+
+    def _parse_nmap_services(self, raw_output: str) -> list[dict[str, str | int | list[str]]]:
+        details: list[dict[str, str | int | list[str]]] = []
+        current: dict[str, str | int | list[str]] | None = None
+        current_script_is_relevant = False
+        relevant_script_prefixes = (
+            "dns-",
+            "http-",
+            "ldap-",
+            "smb-",
+            "ssl-",
+            "krb5-",
+            "rdp-",
+            "msrpc-",
+            "clock-skew",
+        )
+
+        for line in raw_output.splitlines():
+            stripped = line.strip()
+            port_match = re.match(
+                r"^(\d+)\/(tcp|udp)\s+open\s+(\S+)(?:\s+(.*))?$",
+                stripped,
+                flags=re.IGNORECASE,
+            )
+            if port_match:
+                current_script_is_relevant = False
+                current = {
+                    "port": int(port_match.group(1)),
+                    "protocol": port_match.group(2).lower(),
+                    "service": port_match.group(3),
+                    "version": self._clean_nmap_value(port_match.group(4) or ""),
+                    "scripts": [],
+                }
+                details.append(current)
+                continue
+
+            if current is None or not stripped.startswith("|"):
+                continue
+
+            script_line = stripped.lstrip("|_ ").strip()
+            if not script_line or len(script_line) > 180:
+                continue
+            is_script_header = ":" in script_line and not script_line.startswith(("|", "_"))
+            is_relevant_header = script_line.lower().startswith(relevant_script_prefixes)
+            interesting_child = any(
+                keyword in script_line.lower()
+                for keyword in [
+                    "message signing",
+                    "domain",
+                    "computer name",
+                    "netbios",
+                    "target_name",
+                    "issuer",
+                    "subject",
+                    "not valid",
+                    "clock-skew",
+                    "dns",
+                    "ldap",
+                ]
+            )
+            if is_script_header:
+                current_script_is_relevant = is_relevant_header
+            if not is_relevant_header and not (current_script_is_relevant and interesting_child):
+                continue
+            scripts = current.setdefault("scripts", [])
+            if isinstance(scripts, list) and script_line not in scripts:
+                scripts.append(script_line)
+
+        return details
+
+    def _clean_nmap_value(self, value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip()
+
+    def _summarize_port_detail(self, detail: dict[str, str | int | list[str]]) -> str:
+        version = f" - {detail['version']}" if detail.get("version") else ""
+        scripts = detail.get("scripts", [])
+        script_summary = ""
+        if isinstance(scripts, list) and scripts:
+            script_summary = f" | {'; '.join(str(script) for script in scripts[:3])}"
+        return f"{detail['port']}/{detail.get('protocol', 'tcp')} {detail['service']}{version}{script_summary}"
 
     def _update_run(
         self,
