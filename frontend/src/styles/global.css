@@ -216,7 +216,7 @@ button {
 
 .agent-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
   align-items: end;
   margin-bottom: 14px;
@@ -230,7 +230,8 @@ button {
   font-weight: 700;
 }
 
-.agent-form input {
+.agent-form input,
+.agent-form select {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(2, 6, 23, 0.62);
@@ -238,6 +239,27 @@ button {
   border-radius: 8px;
   padding: 10px 11px;
   font: inherit;
+}
+
+.agent-form select {
+  appearance: none;
+}
+
+.agent-form select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.target-summary {
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  border-radius: 8px;
+  background: rgba(45, 212, 191, 0.08);
+  color: #cbd5e1;
+  padding: 10px 12px;
+}
+
+.target-summary strong {
+  color: #5eead4;
 }
 
 .command-list,

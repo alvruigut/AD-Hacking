@@ -8,6 +8,8 @@ export type AgentCommand = {
 
 export type AgentPlan = {
   scope_cidr: string;
+  target_mode: "cidr" | "ip";
+  target: string;
   commands: AgentCommand[];
   safety_notes: string[];
 };
@@ -29,12 +31,19 @@ export type ToolRun = {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
-export async function buildAgentPlan(scopeCidr: string, domain?: string): Promise<AgentPlan> {
+export async function buildAgentPlan(
+  scopeCidr: string,
+  domain?: string,
+  targetMode: "cidr" | "ip" = "cidr",
+  targetIp?: string,
+): Promise<AgentPlan> {
   const response = await fetch(`${apiBaseUrl}/api/agent/plan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       scope_cidr: scopeCidr,
+      target_mode: targetMode,
+      target_ip: targetIp || null,
       domain: domain || null,
       rate_profile: "balanced",
     }),

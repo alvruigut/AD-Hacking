@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ToolRunStatus(StrEnum):
@@ -14,9 +14,17 @@ class ToolRunStatus(StrEnum):
 
 class AgentPlanRequest(BaseModel):
     scope_cidr: str = Field(description="Authorized network scope, for example 10.10.10.0/24")
+    target_mode: str = Field(default="cidr", pattern="^(cidr|ip)$")
+    target_ip: str | None = None
     domain: str | None = None
     dns_server: str | None = None
     rate_profile: str = Field(default="balanced", pattern="^(slow|balanced|fast)$")
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "AgentPlanRequest":
+        if self.target_mode == "ip" and not self.target_ip:
+            raise ValueError("target_ip is required when target_mode is ip")
+        return self
 
 
 class AgentCommand(BaseModel):
@@ -29,6 +37,8 @@ class AgentCommand(BaseModel):
 
 class AgentPlan(BaseModel):
     scope_cidr: str
+    target_mode: str = "cidr"
+    target: str
     commands: list[AgentCommand]
     safety_notes: list[str]
 

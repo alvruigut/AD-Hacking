@@ -112,6 +112,7 @@ export function App() {
         {!isLoading && !error && (
           <div className="workspace-grid">
             <AgentPlanPanel
+              assets={assets}
               onRunStarted={() =>
                 refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
               }
