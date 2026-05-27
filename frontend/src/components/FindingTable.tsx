@@ -24,6 +24,7 @@ export function FindingTable({ findings }: FindingTableProps) {
       </div>
 
       <div className="finding-list">
+        {findings.length === 0 && <p className="empty-text">Aun no hay hallazgos registrados.</p>}
         {findings.map((finding) => (
           <article className="finding-row" key={finding.id}>
             <div className={`severity-dot ${finding.severity}`} />

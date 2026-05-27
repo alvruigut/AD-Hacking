@@ -8,12 +8,16 @@ import { AgentPlanPanel } from "../components/AgentPlanPanel";
 import { AssetTable } from "../components/AssetTable";
 import { FindingTable } from "../components/FindingTable";
 import { MetricCard } from "../components/MetricCard";
+import { ToolNotebook } from "../components/ToolNotebook";
 import { ToolRunsPanel } from "../components/ToolRunsPanel";
+
+type ActiveView = "dashboard" | "findings" | "runs" | "entities";
 
 export function App() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [runs, setRuns] = useState<ToolRun[]>([]);
+  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,18 +66,34 @@ export function App() {
         </div>
 
         <nav>
-          <a className="active" href="#dashboard">
+          <button
+            className={activeView === "dashboard" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveView("dashboard")}
+          >
             <Activity size={18} /> Dashboard
-          </a>
-          <a href="#findings">
+          </button>
+          <button
+            className={activeView === "findings" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveView("findings")}
+          >
             <FileWarning size={18} /> Hallazgos
-          </a>
-          <a href="#runs">
+          </button>
+          <button
+            className={activeView === "runs" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveView("runs")}
+          >
             <TerminalSquare size={18} /> Tool runs
-          </a>
-          <a href="#data">
+          </button>
+          <button
+            className={activeView === "entities" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveView("entities")}
+          >
             <Database size={18} /> Entidades
-          </a>
+          </button>
         </nav>
       </aside>
 
@@ -111,25 +131,38 @@ export function App() {
         {error && <div className="state-panel error">{error}</div>}
         {!isLoading && !error && (
           <div className="workspace-grid">
-            <AgentPlanPanel
-              assets={assets}
-              onRunStarted={() =>
-                refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
-              }
-            />
-            <ToolRunsPanel
-              runs={runs}
-              onRefresh={() =>
-                refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
-              }
-            />
-            <AssetTable
-              assets={assets}
-              onChanged={() =>
-                refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
-              }
-            />
-            <FindingTable findings={findings} />
+            {activeView === "dashboard" && (
+              <AgentPlanPanel
+                assets={assets}
+                onRunStarted={() =>
+                  refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
+                }
+              />
+            )}
+            {activeView === "findings" && <FindingTable findings={findings} />}
+            {activeView === "runs" && (
+              <>
+                <ToolNotebook
+                  onRunStarted={() =>
+                    refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
+                  }
+                />
+                <ToolRunsPanel
+                  runs={runs}
+                  onRefresh={() =>
+                    refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
+                  }
+                />
+              </>
+            )}
+            {activeView === "entities" && (
+              <AssetTable
+                assets={assets}
+                onChanged={() =>
+                  refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
+                }
+              />
+            )}
           </div>
         )}
       </section>
