@@ -70,7 +70,6 @@ export function AgentPlanPanel({
   );
 
   const selectedAsset = assets.find((asset) => asset.ip_address === targetIp);
-  const selectedPhase = auditPhases.find((phase) => phase.value === auditPhase);
   const phaseLabels = useMemo(
     () => new Map(auditPhases.map((phase) => [phase.value, phase.label])),
     [],
@@ -355,20 +354,6 @@ export function AgentPlanPanel({
                   />
                 </label>
               </div>
-
-              {selectedPhase && (
-                <div className="target-summary">
-                  Fase <strong>{selectedPhase.label}</strong> · {selectedPhase.detail}
-                </div>
-              )}
-
-              {selectedAsset && (
-                <div className="target-summary">
-                  Target <strong>{selectedAsset.ip_address}</strong>
-                  {selectedAsset.hostname && <> · {selectedAsset.hostname}</>}
-                  {selectedAsset.domain && <> · {selectedAsset.domain}</>}
-                </div>
-              )}
 
               <div className="command-actions">
                 <button type="button" onClick={handleBuildTargetPlan}>
