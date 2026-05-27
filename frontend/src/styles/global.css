@@ -390,6 +390,22 @@ button {
   color: #cbd5e1;
 }
 
+.variable-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.variable-chip-list span {
+  border: 1px solid rgba(45, 212, 191, 0.24);
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.08);
+  color: #99f6e4;
+  padding: 3px 8px;
+  font:
+    12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 .icon-button {
   display: grid;
   place-items: center;

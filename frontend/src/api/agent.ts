@@ -53,8 +53,12 @@ export async function buildAgentPlan(
     password?: string;
     ntHash?: string;
     share?: string;
+    wordlist?: string;
+    file?: string;
+    port?: string;
     usersList?: string;
     kaliIp?: string;
+    ipDc?: string;
   } = {},
 ): Promise<AgentPlan> {
   const response = await fetch(`${apiBaseUrl}/api/agent/plan`, {
@@ -70,8 +74,12 @@ export async function buildAgentPlan(
       password: context.password || null,
       nt_hash: context.ntHash || null,
       share: context.share || null,
+      wordlist: context.wordlist || null,
+      file: context.file || null,
+      port: context.port || null,
       users_list: context.usersList || null,
       kali_ip: context.kaliIp || null,
+      ip_dc: context.ipDc || null,
       rate_profile: "balanced",
     }),
   });

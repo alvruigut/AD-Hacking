@@ -39,8 +39,12 @@ export function AgentPlanPanel({
   const [password, setPassword] = useState("");
   const [ntHash, setNtHash] = useState("");
   const [share, setShare] = useState("");
+  const [wordlist, setWordlist] = useState("");
+  const [filePath, setFilePath] = useState("");
+  const [port, setPort] = useState("");
   const [usersList, setUsersList] = useState("");
   const [kaliIp, setKaliIp] = useState("");
+  const [ipDc, setIpDc] = useState("");
   const [targetPlan, setTargetPlan] = useState<AgentPlan | null>(null);
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
   const [runningKey, setRunningKey] = useState<string | null>(null);
@@ -142,8 +146,12 @@ export function AgentPlanPanel({
         password,
         ntHash,
         share,
+        wordlist,
+        file: filePath,
+        port,
         usersList,
         kaliIp,
+        ipDc,
       });
       setTargetPlan(nextPlan);
       setTargetCommands(
@@ -314,8 +322,8 @@ export function AgentPlanPanel({
                   <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="<password>" />
                 </label>
                 <label>
-                  NT hash
-                  <input value={ntHash} onChange={(event) => setNtHash(event.target.value)} placeholder="<NT>" />
+                  Hash NT
+                  <input value={ntHash} onChange={(event) => setNtHash(event.target.value)} placeholder="<hash_nt>" />
                 </label>
                 <label>
                   Share
@@ -340,6 +348,22 @@ export function AgentPlanPanel({
                 <label>
                   Users list
                   <input value={usersList} onChange={(event) => setUsersList(event.target.value)} placeholder="<users_list>" />
+                </label>
+                <label>
+                  Wordlist
+                  <input value={wordlist} onChange={(event) => setWordlist(event.target.value)} placeholder="<wordlist>" />
+                </label>
+                <label>
+                  Fichero
+                  <input value={filePath} onChange={(event) => setFilePath(event.target.value)} placeholder="<file>" />
+                </label>
+                <label>
+                  DC IP
+                  <input value={ipDc} onChange={(event) => setIpDc(event.target.value)} placeholder="<ip_dc>" />
+                </label>
+                <label>
+                  Puerto
+                  <input value={port} onChange={(event) => setPort(event.target.value)} placeholder="<port>" />
                 </label>
                 <label>
                   Kali IP
@@ -389,6 +413,13 @@ export function AgentPlanPanel({
                 />
                 <p>{command.purpose}</p>
                 <p className="command-expected">{command.expected_output}</p>
+                {extractVariables(targetCommands[commandKey] ?? command.command).length > 0 && (
+                  <div className="variable-chip-list">
+                    {extractVariables(targetCommands[commandKey] ?? command.command).map((variable) => (
+                      <span key={variable}>{variable}</span>
+                    ))}
+                  </div>
+                )}
                 <div className="command-actions">
                   <button
                     aria-label="Copiar comando"
@@ -415,4 +446,8 @@ export function AgentPlanPanel({
       )}
     </section>
   );
+}
+
+function extractVariables(command: string) {
+  return Array.from(new Set(command.match(/<[^>\s]+>/g) ?? []));
 }

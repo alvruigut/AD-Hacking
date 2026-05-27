@@ -26,8 +26,12 @@ class AgentPlanRequest(BaseModel):
     password: str | None = None
     nt_hash: str | None = None
     share: str | None = None
+    wordlist: str | None = None
+    file: str | None = None
+    port: str | None = None
     users_list: str | None = None
     kali_ip: str | None = None
+    ip_dc: str | None = None
     rate_profile: str = Field(default="balanced", pattern="^(slow|balanced|fast)$")
 
     @model_validator(mode="after")

