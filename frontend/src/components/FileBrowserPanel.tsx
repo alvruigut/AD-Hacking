@@ -1,4 +1,4 @@
-import { FileText, Folder, FolderOpen, RefreshCw } from "lucide-react";
+import { ArrowUp, FileText, Folder, FolderOpen, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { listFiles, readFile, type FileEntry } from "../api/files";
@@ -44,6 +44,15 @@ export function FileBrowserPanel({ initialPath }: FileBrowserPanelProps) {
     }
   }
 
+  function parentPath(currentPath: string) {
+    const normalized = currentPath.replace(/\\/g, "/").replace(/\/+$/, "");
+    const index = normalized.lastIndexOf("/");
+    if (index <= 0) {
+      return normalized || "data/downloads";
+    }
+    return normalized.slice(0, index);
+  }
+
   useEffect(() => {
     refresh().catch(() => undefined);
   }, []);
@@ -67,6 +76,14 @@ export function FileBrowserPanel({ initialPath }: FileBrowserPanelProps) {
 
       <div className="file-path-row">
         <input value={path} onChange={(event) => setPath(event.target.value)} />
+        <button
+          aria-label="Subir un directorio"
+          className="icon-button secondary"
+          type="button"
+          onClick={() => refresh(parentPath(path))}
+        >
+          <ArrowUp size={16} />
+        </button>
         <button type="button" onClick={() => refresh()}>
           Abrir
         </button>

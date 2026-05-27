@@ -590,7 +590,7 @@ button {
 
 .file-path-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 34px auto;
   gap: 10px;
   margin-bottom: 12px;
 }
