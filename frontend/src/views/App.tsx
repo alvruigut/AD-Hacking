@@ -11,7 +11,7 @@ import { MetricCard } from "../components/MetricCard";
 import { ToolNotebook } from "../components/ToolNotebook";
 import { ToolRunsPanel } from "../components/ToolRunsPanel";
 
-type ActiveView = "dashboard" | "findings" | "runs" | "entities";
+type ActiveView = "dashboard" | "findings" | "tools" | "entities";
 
 export function App() {
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -81,11 +81,11 @@ export function App() {
             <FileWarning size={18} /> Hallazgos
           </button>
           <button
-            className={activeView === "runs" ? "active" : ""}
+            className={activeView === "tools" ? "active" : ""}
             type="button"
-            onClick={() => setActiveView("runs")}
+            onClick={() => setActiveView("tools")}
           >
-            <TerminalSquare size={18} /> Tool runs
+            <TerminalSquare size={18} /> Tools
           </button>
           <button
             className={activeView === "entities" ? "active" : ""}
@@ -132,17 +132,9 @@ export function App() {
         {!isLoading && !error && (
           <div className="workspace-grid">
             {activeView === "dashboard" && (
-              <AgentPlanPanel
-                assets={assets}
-                onRunStarted={() =>
-                  refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
-                }
-              />
-            )}
-            {activeView === "findings" && <FindingTable findings={findings} />}
-            {activeView === "runs" && (
               <>
-                <ToolNotebook
+                <AgentPlanPanel
+                  assets={assets}
                   onRunStarted={() =>
                     refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
                   }
@@ -155,6 +147,8 @@ export function App() {
                 />
               </>
             )}
+            {activeView === "findings" && <FindingTable findings={findings} />}
+            {activeView === "tools" && <ToolNotebook />}
             {activeView === "entities" && (
               <AssetTable
                 assets={assets}

@@ -1,7 +1,5 @@
-import { Check, Pencil, Play, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-
-import { executeAgentCommand } from "../api/agent";
 
 type ToolTemplate = {
   id: string;
@@ -10,10 +8,6 @@ type ToolTemplate = {
   tool: string;
   command: string;
   authorizedTarget: string;
-};
-
-type ToolNotebookProps = {
-  onRunStarted: () => void;
 };
 
 const defaultTools: ToolTemplate[] = [
@@ -45,12 +39,10 @@ const defaultTools: ToolTemplate[] = [
 
 const storageKey = "ad-redteam-tool-notebook";
 
-export function ToolNotebook({ onRunStarted }: ToolNotebookProps) {
+export function ToolNotebook() {
   const [tools, setTools] = useState<ToolTemplate[]>(defaultTools);
   const [drafts, setDrafts] = useState<Record<string, ToolTemplate>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [runningId, setRunningId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
@@ -113,19 +105,6 @@ export function ToolNotebook({ onRunStarted }: ToolNotebookProps) {
     persist(tools.filter((tool) => tool.id !== toolId));
   }
 
-  async function runTool(tool: ToolTemplate) {
-    setError(null);
-    setRunningId(tool.id);
-    try {
-      await executeAgentCommand(tool.command, tool.authorizedTarget, tool.group.toLowerCase());
-      onRunStarted();
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Error ejecutando herramienta");
-    } finally {
-      setRunningId(null);
-    }
-  }
-
   return (
     <section className="panel notebook-panel">
       <div className="panel-header">
@@ -138,8 +117,6 @@ export function ToolNotebook({ onRunStarted }: ToolNotebookProps) {
           Agregar
         </button>
       </div>
-
-      {error && <div className="state-panel error">{error}</div>}
 
       <div className="notebook-groups">
         {groupedTools().map((group) => (
@@ -199,15 +176,6 @@ export function ToolNotebook({ onRunStarted }: ToolNotebookProps) {
                         </div>
                         <code>{tool.command}</code>
                         <div className="command-actions">
-                          <button
-                            className="run-button"
-                            disabled={runningId === tool.id}
-                            type="button"
-                            onClick={() => runTool(tool)}
-                          >
-                            {runningId === tool.id ? <Save size={16} /> : <Play size={16} />}
-                            Ejecutar
-                          </button>
                           <button
                             className="icon-button secondary"
                             type="button"
