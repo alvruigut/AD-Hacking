@@ -571,26 +571,34 @@ button {
   margin-bottom: 0;
 }
 
-.asset-row {
+.asset-card {
   display: grid;
-  grid-template-columns: 1.1fr 130px 1fr minmax(180px, 2fr) minmax(110px, 0.8fr) auto;
   gap: 10px;
-  align-items: center;
   padding: 12px 14px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
   background: rgba(2, 6, 23, 0.42);
 }
 
+.asset-row {
+  display: grid;
+  grid-template-columns: 34px 1.2fr 140px 1fr 110px auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .asset-row span {
   color: #94a3b8;
+}
+
+.asset-details {
+  margin-left: 44px;
 }
 
 .service-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  grid-column: span 2;
 }
 
 .service-chip {
@@ -606,7 +614,6 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  grid-column: span 2;
 }
 
 .editable-chip {
@@ -649,6 +656,17 @@ button {
 
 .service-chip strong {
   color: #f8fafc;
+}
+
+.port-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.port-line b {
+  color: #f8fafc;
+  font-weight: 800;
 }
 
 .service-chip small {
@@ -781,6 +799,10 @@ button {
   .tool-template-grid,
   .asset-row {
     grid-template-columns: 1fr;
+  }
+
+  .asset-details {
+    margin-left: 0;
   }
 
   .row-actions {

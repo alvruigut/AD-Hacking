@@ -1,4 +1,4 @@
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import { deleteAsset, updateAsset } from "../api/assets";
@@ -13,6 +13,7 @@ type AssetTableProps = {
 
 export function AssetTable({ assets, onChanged }: AssetTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, Asset>>({});
 
   function startEditing(asset: Asset) {
@@ -52,6 +53,18 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
   async function removeAsset(assetId: string) {
     await deleteAsset(assetId);
     onChanged();
+  }
+
+  function toggleExpanded(assetId: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(assetId)) {
+        next.delete(assetId);
+      } else {
+        next.add(assetId);
+      }
+      return next;
+    });
   }
 
   function displayedPortDetails(asset: Asset): PortDetail[] {
@@ -114,32 +127,55 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
         {assets.length === 0 && <p className="empty-text">Aun no hay equipos importados.</p>}
         {assets.map((asset) => {
           const isEditing = editingId === asset.id;
+          const isExpanded = expandedIds.has(asset.id) || isEditing;
           const draft = drafts[asset.id] ?? asset;
           return (
-            <article className="asset-row editable" key={asset.id}>
+            <article className="asset-card" key={asset.id}>
               {isEditing ? (
                 <>
-                  <input
-                    value={draft.hostname ?? ""}
-                    placeholder="hostname"
-                    onChange={(event) => updateDraft(asset.id, { hostname: event.target.value })}
-                  />
-                  <input
-                    value={draft.ip_address}
-                    placeholder="IP"
-                    onChange={(event) => updateDraft(asset.id, { ip_address: event.target.value })}
-                  />
-                  <input
-                    value={draft.domain ?? ""}
-                    placeholder="dominio"
-                    onChange={(event) => updateDraft(asset.id, { domain: event.target.value })}
-                  />
-                  <input
-                    value={draft.kind}
-                    placeholder="tipo"
-                    onChange={(event) => updateDraft(asset.id, { kind: event.target.value as Asset["kind"] })}
-                  />
-                  <div className="service-editor">
+                  <div className="asset-row asset-row-main">
+                    <input
+                      value={draft.hostname ?? ""}
+                      placeholder="hostname"
+                      onChange={(event) => updateDraft(asset.id, { hostname: event.target.value })}
+                    />
+                    <input
+                      value={draft.ip_address}
+                      placeholder="IP"
+                      onChange={(event) => updateDraft(asset.id, { ip_address: event.target.value })}
+                    />
+                    <input
+                      value={draft.domain ?? ""}
+                      placeholder="dominio"
+                      onChange={(event) => updateDraft(asset.id, { domain: event.target.value })}
+                    />
+                    <input
+                      value={draft.kind}
+                      placeholder="tipo"
+                      onChange={(event) =>
+                        updateDraft(asset.id, { kind: event.target.value as Asset["kind"] })
+                      }
+                    />
+                    <div className="row-actions">
+                      <button
+                        aria-label="Guardar entidad"
+                        className="icon-button"
+                        type="button"
+                        onClick={() => saveAsset(asset.id)}
+                      >
+                        <Check size={15} />
+                      </button>
+                      <button
+                        aria-label="Cancelar edicion"
+                        className="icon-button secondary"
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="asset-details service-editor">
                     {displayedPortDetails(draft).map((detail, index) => (
                       <div className="service-chip editable-chip" key={`${detail.port}-${index}`}>
                         <div className="chip-fields">
@@ -187,64 +223,61 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                       Añadir puerto
                     </button>
                   </div>
-                  <div className="row-actions">
-                    <button
-                      aria-label="Guardar entidad"
-                      className="icon-button"
-                      type="button"
-                      onClick={() => saveAsset(asset.id)}
-                    >
-                      <Check size={15} />
-                    </button>
-                    <button
-                      aria-label="Cancelar edicion"
-                      className="icon-button secondary"
-                      type="button"
-                      onClick={() => setEditingId(null)}
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
                 </>
               ) : (
                 <>
-                  <strong>{asset.hostname || asset.ip_address}</strong>
-                  <span>{asset.ip_address}</span>
-                  <span>{asset.domain || "sin dominio"}</span>
-                  <div className="service-summary">
-                    {displayedPortDetails(asset).length > 0 ? (
-                      displayedPortDetails(asset).map((detail) => (
-                        <span className="service-chip" key={`${detail.port}-${detail.protocol}`}>
-                          <strong>{detail.port}/{detail.protocol ?? "tcp"}</strong>
-                          <> {detail.service || "?"}</>
-                          {detail.version && <> · {detail.version}</>}
-                          {detail.scripts && detail.scripts.length > 0 && (
-                            <small>{detail.scripts.slice(0, 2).join(" · ")}</small>
-                          )}
-                        </span>
-                      ))
-                    ) : (
-                      <span>{asset.services.join(", ") || "sin servicios"}</span>
-                    )}
-                  </div>
-                  <div className="row-actions">
+                  <div className="asset-row asset-row-main">
                     <button
-                      aria-label="Editar entidad"
+                      aria-label="Desplegar puertos"
                       className="icon-button secondary"
                       type="button"
-                      onClick={() => startEditing(asset)}
+                      onClick={() => toggleExpanded(asset.id)}
                     >
-                      <Pencil size={15} />
+                      {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                     </button>
-                    <button
-                      aria-label="Eliminar entidad"
-                      className="icon-button danger"
-                      type="button"
-                      onClick={() => removeAsset(asset.id)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <strong>{asset.hostname || asset.ip_address}</strong>
+                    <span>{asset.ip_address}</span>
+                    <span>{asset.domain || "sin dominio"}</span>
+                    <span>{displayedPortDetails(asset).length} puertos</span>
+                    <div className="row-actions">
+                      <button
+                        aria-label="Editar entidad"
+                        className="icon-button secondary"
+                        type="button"
+                        onClick={() => startEditing(asset)}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        aria-label="Eliminar entidad"
+                        className="icon-button danger"
+                        type="button"
+                        onClick={() => removeAsset(asset.id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
+                  {isExpanded && (
+                    <div className="asset-details service-summary">
+                      {displayedPortDetails(asset).length > 0 ? (
+                        displayedPortDetails(asset).map((detail) => (
+                          <span className="service-chip" key={`${detail.port}-${detail.protocol}`}>
+                            <span className="port-line">
+                              <strong>{detail.port}/{detail.protocol ?? "tcp"}</strong>
+                              <b>{detail.service || "?"}</b>
+                            </span>
+                            {detail.version && <span>{detail.version}</span>}
+                            {detail.scripts && detail.scripts.length > 0 && (
+                              <small>{detail.scripts.slice(0, 2).join(" · ")}</small>
+                            )}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="empty-text">Sin puertos registrados.</span>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </article>
