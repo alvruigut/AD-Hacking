@@ -61,13 +61,13 @@ export function TerminalPanel() {
       terminal.write("\r\n[terminal cerrada]\r\n");
     });
 
-    terminal.onData((data) => {
+    terminal.onData((data: string) => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "input", data }));
       }
     });
 
-    terminal.onResize((size) => {
+    terminal.onResize((size: { rows: number; cols: number }) => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "resize", rows: size.rows, cols: size.cols }));
       }

@@ -421,6 +421,11 @@ button {
   gap: 8px;
 }
 
+.secondary-action {
+  border-color: rgba(148, 163, 184, 0.32);
+  background: rgba(30, 41, 59, 0.74);
+}
+
 .run-button:disabled {
   cursor: wait;
   opacity: 0.7;
@@ -478,11 +483,12 @@ button {
 
 .tool-template-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
 
 .tool-template input,
+.tool-template select,
 .tool-template textarea {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.22);
@@ -500,11 +506,21 @@ button {
     13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
+.tool-template .notes-editor {
+  min-height: 58px;
+}
+
 .tool-template code {
   display: block;
   overflow-x: auto;
   color: #f8fafc;
   white-space: nowrap;
+}
+
+.tool-notes {
+  margin-bottom: 0;
+  color: #cbd5e1;
+  line-height: 1.55;
 }
 
 .run-row {
