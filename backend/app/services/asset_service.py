@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 
 from app.schemas.asset import AssetCreate, AssetRead
