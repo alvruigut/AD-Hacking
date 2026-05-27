@@ -12,6 +12,7 @@ type AgentPlanPanelProps = {
 };
 
 const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
+  { value: "all", label: "Plan completo", detail: "Genera todas las fases disponibles para revisar y ejecutar." },
   { value: "service_scan", label: "Servicios del target", detail: "RustScan, Nmap y puertos expuestos." },
   { value: "smb_enum", label: "Enumeracion SMB", detail: "Shares, RID brute, null/guest y descarga de share." },
   { value: "ldap_enum", label: "Enumeracion LDAP/BloodHound", detail: "LDAP, dominio, objetos y relaciones AD." },
@@ -70,6 +71,10 @@ export function AgentPlanPanel({
 
   const selectedAsset = assets.find((asset) => asset.ip_address === targetIp);
   const selectedPhase = auditPhases.find((phase) => phase.value === auditPhase);
+  const phaseLabels = useMemo(
+    () => new Map(auditPhases.map((phase) => [phase.value, phase.label])),
+    [],
+  );
   const shareOptions = useMemo(() => {
     const shares = selectedAsset?.shares ?? [];
     const normalizedUser = username.trim().toLowerCase();
@@ -289,7 +294,7 @@ export function AgentPlanPanel({
                   )}
                 </label>
                 <label>
-                  Momento
+                  Fase de auditoria
                   <select value={auditPhase} onChange={(event) => setAuditPhase(event.target.value as AuditPhase)}>
                     {auditPhases.map((phase) => (
                       <option key={phase.value} value={phase.value}>
@@ -384,7 +389,7 @@ export function AgentPlanPanel({
             return (
               <article className="command-row" key={commandKey}>
                 <div>
-                  <span>{command.phase}</span>
+                  <span>{phaseLabels.get(command.phase as AuditPhase) ?? command.phase}</span>
                   <strong>{command.tool}</strong>
                 </div>
                 <textarea
@@ -398,6 +403,7 @@ export function AgentPlanPanel({
                   }
                 />
                 <p>{command.purpose}</p>
+                <p className="command-expected">{command.expected_output}</p>
                 <div className="command-actions">
                   <button
                     aria-label="Copiar comando"

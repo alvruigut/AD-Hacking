@@ -386,6 +386,10 @@ button {
   color: #94a3b8;
 }
 
+.command-expected {
+  color: #cbd5e1;
+}
+
 .icon-button {
   display: grid;
   place-items: center;

@@ -20,7 +20,7 @@ class AgentPlanRequest(BaseModel):
     dns_server: str | None = None
     audit_phase: str = Field(
         default="service_scan",
-        pattern="^(service_scan|smb_enum|ldap_enum|kerberos_enum|credential_checks|exploitation|extraction)$",
+        pattern="^(all|service_scan|smb_enum|ldap_enum|kerberos_enum|credential_checks|exploitation|extraction)$",
     )
     username: str | None = None
     password: str | None = None

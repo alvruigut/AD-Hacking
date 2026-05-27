@@ -293,7 +293,14 @@ class AgentService:
                     ),
                 ],
             }
-            commands = commands_by_phase[request.audit_phase]
+            if request.audit_phase == "all":
+                commands = [
+                    command
+                    for phase_commands in commands_by_phase.values()
+                    for command in phase_commands
+                ]
+            else:
+                commands = commands_by_phase[request.audit_phase]
 
         return AgentPlan(
             scope_cidr=request.scope_cidr,

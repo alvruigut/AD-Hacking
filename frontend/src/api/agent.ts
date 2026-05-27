@@ -15,6 +15,7 @@ export type AgentPlan = {
 };
 
 export type AuditPhase =
+  | "all"
   | "service_scan"
   | "smb_enum"
   | "ldap_enum"
