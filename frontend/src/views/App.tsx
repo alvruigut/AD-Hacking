@@ -1,4 +1,4 @@
-import { Activity, Database, FileWarning, ShieldAlert, TerminalSquare } from "lucide-react";
+import { Activity, Database, FileArchive, FileWarning, ShieldAlert, TerminalSquare } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { listAssets, type Asset } from "../api/assets";
@@ -13,7 +13,7 @@ import { TerminalPanel } from "../components/TerminalPanel";
 import { ToolNotebook } from "../components/ToolNotebook";
 import { ToolRunsPanel } from "../components/ToolRunsPanel";
 
-type ActiveView = "dashboard" | "findings" | "tools" | "entities" | "terminal";
+type ActiveView = "dashboard" | "files" | "findings" | "tools" | "entities" | "terminal";
 
 export function App() {
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -75,6 +75,13 @@ export function App() {
             onClick={() => setActiveView("dashboard")}
           >
             <Activity size={18} /> Dashboard
+          </button>
+          <button
+            className={activeView === "files" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveView("files")}
+          >
+            <FileArchive size={18} /> Ficheros
           </button>
           <button
             className={activeView === "findings" ? "active" : ""}
@@ -156,9 +163,9 @@ export function App() {
                     refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
                   }
                 />
-                <FileBrowserPanel initialPath={workingDirectory} />
               </>
             )}
+            {activeView === "files" && <FileBrowserPanel initialPath={workingDirectory} />}
             {activeView === "findings" && (
               <FindingTable
                 findings={findings}

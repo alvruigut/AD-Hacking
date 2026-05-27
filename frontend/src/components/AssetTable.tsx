@@ -231,9 +231,7 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                     <strong>{asset.hostname || asset.ip_address}</strong>
                     <span>{asset.ip_address}</span>
                     <span>{asset.domain || "sin dominio"}</span>
-                    <span>
-                      {displayedPortDetails(asset).length} puertos · {asset.shares?.length ?? 0} shares
-                    </span>
+                    <span>{displayedPortDetails(asset).length} puertos</span>
                     <div className="row-actions">
                       <button
                         aria-label="Editar entidad"
@@ -271,16 +269,6 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                       ) : (
                         <span className="empty-text">Sin puertos registrados.</span>
                       )}
-                      {(asset.shares ?? []).map((share) => (
-                        <span className="service-chip" key={`${share.name}-${share.account ?? "anon"}`}>
-                          <span className="port-line">
-                            <strong>{share.name}</strong>
-                            <b>{share.permissions || "share"}</b>
-                          </span>
-                          {share.remark && <span>{share.remark}</span>}
-                          <small>{[share.account, share.source_tool].filter(Boolean).join(" · ")}</small>
-                        </span>
-                      ))}
                     </div>
                   )}
                 </>

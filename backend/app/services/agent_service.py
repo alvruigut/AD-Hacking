@@ -17,9 +17,7 @@ from app.schemas.agent import (
     ToolRunStatus,
 )
 from app.schemas.asset import AssetCreate, AssetKind, AssetRead
-from app.schemas.finding import FindingCreate, Severity
 from app.services.asset_service import asset_service
-from app.services.finding_service import finding_service
 
 KNOWN_PORT_SERVICES = {
     20: "ftp-data",
@@ -421,18 +419,6 @@ class AgentService:
             )
             assets.append(asset)
 
-        if assets:
-            finding_service.create(
-                FindingCreate(
-                    title="Hosts SMB asociados al dominio detectados",
-                    description=f"Se importaron {len(assets)} hosts desde salida de NetExec SMB.",
-                    severity=Severity.info,
-                    affected_entities=[asset.hostname or asset.ip_address for asset in assets],
-                    evidence=["Salida NetExec SMB importada"],
-                    source_tool="netexec",
-                    recommendation="Revisar signing, shares expuestos y privilegios efectivos por host.",
-                )
-            )
         return assets
 
     def ingest_smb_shares(self, raw_output: str, args: list[str], source_tool: str) -> list[AssetRead]:
@@ -451,18 +437,6 @@ class AgentService:
             )
             assets.append(asset)
 
-        if assets:
-            finding_service.create(
-                FindingCreate(
-                    title="Shares SMB enumerados",
-                    description=f"Se importaron shares SMB de {len(assets)} hosts.",
-                    severity=Severity.info,
-                    affected_entities=[asset.hostname or asset.ip_address for asset in assets],
-                    evidence=[f"{asset.ip_address}: {len(asset.shares)} shares conocidos" for asset in assets],
-                    source_tool=source_tool,
-                    recommendation="Revisar permisos efectivos por usuario y descargar solo evidencias autorizadas.",
-                )
-            )
         return assets
 
     def _parse_smb_shares(
@@ -713,17 +687,6 @@ class AgentService:
                 port_details=port_details,
                 source_tool="rustscan",
                 notes="\n".join(summary_lines),
-            )
-        )
-        finding_service.create(
-            FindingCreate(
-                title=f"Servicios expuestos en {asset.hostname or target_ip}",
-                description=f"RustScan/Nmap detecto {len(port_details)} puertos abiertos en {target_ip}.",
-                severity=Severity.info,
-                affected_entities=[asset.hostname or target_ip],
-                evidence=summary_lines,
-                source_tool="rustscan",
-                recommendation="Revisar servicios AD expuestos, versiones y scripts destacados.",
             )
         )
         return asset
