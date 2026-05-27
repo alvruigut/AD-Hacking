@@ -1,5 +1,5 @@
 import { Activity, Database, FileArchive, FileWarning, ShieldAlert, TerminalSquare } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { listAssets, type Asset } from "../api/assets";
 import { listToolRuns, type ToolRun } from "../api/agent";
@@ -8,7 +8,6 @@ import { AgentPlanPanel } from "../components/AgentPlanPanel";
 import { AssetTable } from "../components/AssetTable";
 import { FileBrowserPanel } from "../components/FileBrowserPanel";
 import { FindingTable } from "../components/FindingTable";
-import { MetricCard } from "../components/MetricCard";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { ToolNotebook } from "../components/ToolNotebook";
 import { ToolRunsPanel } from "../components/ToolRunsPanel";
@@ -51,11 +50,6 @@ export function App() {
     }, 2500);
     return () => window.clearInterval(intervalId);
   }, [runs]);
-
-  const highRiskCount = useMemo(
-    () => findings.filter((finding) => ["critical", "high"].includes(finding.severity)).length,
-    [findings],
-  );
 
   return (
     <main className="app-shell">
@@ -121,27 +115,6 @@ export function App() {
             <h1>Auditando Active Directory</h1>
           </div>
         </header>
-
-        <section className="metrics-grid" aria-label="Metricas">
-          <MetricCard
-            icon={<FileWarning size={20} />}
-            label="Hallazgos"
-            value={findings.length}
-            detail="registrados en el workspace"
-          />
-          <MetricCard
-            icon={<ShieldAlert size={20} />}
-            label="Riesgo alto"
-            value={highRiskCount}
-            detail="requieren validacion"
-          />
-          <MetricCard
-            icon={<TerminalSquare size={20} />}
-            label="Equipos AD"
-            value={assets.length}
-            detail="detectados por importadores"
-          />
-        </section>
 
         {isLoading && <div className="state-panel">Cargando hallazgos...</div>}
         {error && <div className="state-panel error">{error}</div>}
