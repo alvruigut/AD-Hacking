@@ -8,10 +8,11 @@ import { AgentPlanPanel } from "../components/AgentPlanPanel";
 import { AssetTable } from "../components/AssetTable";
 import { FindingTable } from "../components/FindingTable";
 import { MetricCard } from "../components/MetricCard";
+import { TerminalPanel } from "../components/TerminalPanel";
 import { ToolNotebook } from "../components/ToolNotebook";
 import { ToolRunsPanel } from "../components/ToolRunsPanel";
 
-type ActiveView = "dashboard" | "findings" | "tools" | "entities";
+type ActiveView = "dashboard" | "findings" | "tools" | "entities" | "terminal";
 
 export function App() {
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -94,6 +95,13 @@ export function App() {
           >
             <Database size={18} /> Entidades
           </button>
+          <button
+            className={activeView === "terminal" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveView("terminal")}
+          >
+            <TerminalSquare size={18} /> Terminal
+          </button>
         </nav>
       </aside>
 
@@ -166,6 +174,7 @@ export function App() {
                 }
               />
             )}
+            {activeView === "terminal" && <TerminalPanel />}
           </div>
         )}
       </section>
