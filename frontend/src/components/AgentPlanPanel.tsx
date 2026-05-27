@@ -6,6 +6,8 @@ import type { Asset } from "../api/assets";
 
 type AgentPlanPanelProps = {
   assets: Asset[];
+  workingDirectory: string;
+  onWorkingDirectoryChange: (path: string) => void;
   onRunStarted: () => void;
 };
 
@@ -19,7 +21,12 @@ const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "extraction", label: "Extraccion", detail: "Registry, SAM y artefactos sensibles." },
 ];
 
-export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
+export function AgentPlanPanel({
+  assets,
+  workingDirectory,
+  onWorkingDirectoryChange,
+  onRunStarted,
+}: AgentPlanPanelProps) {
   const [scope, setScope] = useState("10.10.10.0/24");
   const [domain, setDomain] = useState("corp.local");
   const [discoveryCommand, setDiscoveryCommand] = useState("nxc smb 10.10.10.0/24");
@@ -110,7 +117,7 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
     setError(null);
     setRunningKey("discovery");
     try {
-      await executeAgentCommand(discoveryCommand, scope, "network_discovery");
+      await executeAgentCommand(discoveryCommand, scope, "network_discovery", workingDirectory);
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error ejecutando mapeado");
@@ -156,7 +163,7 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
     }
     setRunningKey(key);
     try {
-      await executeAgentCommand(targetCommands[key], targetIp, phase);
+      await executeAgentCommand(targetCommands[key], targetIp, phase, workingDirectory);
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error ejecutando comando");
@@ -333,6 +340,14 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
                 <label>
                   Kali IP
                   <input value={kaliIp} onChange={(event) => setKaliIp(event.target.value)} placeholder="<kali_ip>" />
+                </label>
+                <label>
+                  Carpeta de trabajo
+                  <input
+                    value={workingDirectory}
+                    onChange={(event) => onWorkingDirectoryChange(event.target.value)}
+                    placeholder="data/downloads"
+                  />
                 </label>
               </div>
 

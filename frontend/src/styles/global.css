@@ -588,6 +588,83 @@ button {
   white-space: pre-wrap;
 }
 
+.file-path-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.file-path-row input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.62);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font: inherit;
+}
+
+.file-browser-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr);
+  gap: 12px;
+}
+
+.file-list,
+.file-preview {
+  min-height: 260px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+  padding: 10px;
+}
+
+.file-entry {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 9px 8px;
+  text-align: left;
+}
+
+.file-entry:hover {
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.file-entry svg,
+.file-preview-title svg {
+  color: #5eead4;
+}
+
+.file-entry small,
+.file-preview-title {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.file-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.file-preview pre {
+  max-height: 420px;
+  overflow: auto;
+  margin: 0;
+  color: #d1fae5;
+  white-space: pre-wrap;
+  font:
+    13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 .terminal-panel {
   min-height: 620px;
 }
@@ -897,6 +974,8 @@ button {
   .agent-form,
   .finding-editor-grid,
   .tool-template-grid,
+  .file-browser-grid,
+  .file-path-row,
   .asset-row,
   .asset-edit-row {
     grid-template-columns: 1fr;

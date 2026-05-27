@@ -6,6 +6,7 @@ import { listToolRuns, type ToolRun } from "../api/agent";
 import { listFindings, type Finding } from "../api/findings";
 import { AgentPlanPanel } from "../components/AgentPlanPanel";
 import { AssetTable } from "../components/AssetTable";
+import { FileBrowserPanel } from "../components/FileBrowserPanel";
 import { FindingTable } from "../components/FindingTable";
 import { MetricCard } from "../components/MetricCard";
 import { TerminalPanel } from "../components/TerminalPanel";
@@ -19,6 +20,7 @@ export function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [runs, setRuns] = useState<ToolRun[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
+  const [workingDirectory, setWorkingDirectory] = useState("data/downloads");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,6 +144,8 @@ export function App() {
               <>
                 <AgentPlanPanel
                   assets={assets}
+                  workingDirectory={workingDirectory}
+                  onWorkingDirectoryChange={setWorkingDirectory}
                   onRunStarted={() =>
                     refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
                   }
@@ -152,6 +156,7 @@ export function App() {
                     refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
                   }
                 />
+                <FileBrowserPanel initialPath={workingDirectory} />
               </>
             )}
             {activeView === "findings" && (

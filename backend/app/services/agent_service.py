@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.schemas.agent import (
     AgentCommand,
@@ -319,17 +320,19 @@ class AgentService:
 
     def execute(self, payload: ToolExecuteRequest) -> ToolRunRead:
         args = self._validate_command(payload.command, payload.scope_cidr)
+        working_directory = self._prepare_working_directory(payload.working_directory)
         tool_run = self.create_tool_run(
             ToolRunCreate(
                 tool=args[0],
                 command=payload.command,
                 phase=payload.phase,
+                working_directory=str(working_directory),
                 status=ToolRunStatus.running,
             )
         )
         worker = threading.Thread(
             target=self._run_command,
-            args=(tool_run.id, args, payload.timeout_seconds, payload.auto_ingest),
+            args=(tool_run.id, args, payload.timeout_seconds, payload.auto_ingest, working_directory),
             daemon=True,
         )
         worker.start()
@@ -620,12 +623,21 @@ class AgentService:
 
         return args
 
+    def _prepare_working_directory(self, working_directory: str | None) -> Path:
+        raw_directory = (working_directory or "data/downloads").strip() or "data/downloads"
+        path = Path(raw_directory).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        path.mkdir(parents=True, exist_ok=True)
+        return path.resolve()
+
     def _run_command(
         self,
         tool_run_id: str,
         args: list[str],
         timeout_seconds: int,
         auto_ingest: bool,
+        working_directory: Path,
     ) -> None:
         try:
             process = subprocess.Popen(
@@ -633,6 +645,7 @@ class AgentService:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                cwd=working_directory,
             )
             with self._lock:
                 self._processes[tool_run_id] = process

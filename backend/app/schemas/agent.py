@@ -58,6 +58,7 @@ class ToolRunCreate(BaseModel):
     command: str
     phase: str | None = None
     status: ToolRunStatus = ToolRunStatus.planned
+    working_directory: str | None = None
     raw_output: str | None = None
     exit_code: int | None = None
     error: str | None = None
@@ -67,6 +68,7 @@ class ToolExecuteRequest(BaseModel):
     command: str
     scope_cidr: str
     phase: str | None = None
+    working_directory: str | None = None
     timeout_seconds: int = Field(default=900, ge=5, le=7200)
     auto_ingest: bool = True
 

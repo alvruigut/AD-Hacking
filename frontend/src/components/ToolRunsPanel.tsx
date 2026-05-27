@@ -62,6 +62,7 @@ export function ToolRunsPanel({ runs, onRefresh }: ToolRunsPanelProps) {
               </div>
             </div>
             <code>{run.command}</code>
+            {run.working_directory && <p className="empty-text">cwd: {run.working_directory}</p>}
             {run.error && <p className="run-error">{run.error}</p>}
             {run.raw_output && <pre>{run.raw_output}</pre>}
           </article>

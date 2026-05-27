@@ -31,6 +31,7 @@ export type ToolRun = {
   command: string;
   phase?: string | null;
   status: ToolRunStatus;
+  working_directory?: string | null;
   raw_output?: string | null;
   exit_code?: number | null;
   error?: string | null;
@@ -83,6 +84,7 @@ export async function executeAgentCommand(
   command: string,
   scopeCidr: string,
   phase?: string,
+  workingDirectory?: string,
 ): Promise<ToolRun> {
   const response = await fetch(`${apiBaseUrl}/api/agent/execute`, {
     method: "POST",
@@ -91,6 +93,7 @@ export async function executeAgentCommand(
       command,
       scope_cidr: scopeCidr,
       phase: phase || null,
+      working_directory: workingDirectory || null,
       timeout_seconds: 900,
       auto_ingest: true,
     }),
