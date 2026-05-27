@@ -19,8 +19,12 @@ class AgentPlanRequest(BaseModel):
     domain: str | None = None
     dns_server: str | None = None
     audit_phase: str = Field(
-        default="service_scan",
-        pattern="^(all|service_scan|smb_enum|ldap_enum|kerberos_enum|credential_checks|exploitation|extraction)$",
+        default="reconnaissance",
+        pattern=(
+            "^(all|reconnaissance|initial_enumeration|credential_access|initial_access|"
+            "authenticated_enumeration|exploitation|privilege_escalation|lateral_movement|"
+            "pivoting_post_exploitation|persistence)$"
+        ),
     )
     username: str | None = None
     password: str | None = None

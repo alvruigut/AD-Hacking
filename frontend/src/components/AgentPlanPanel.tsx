@@ -13,13 +13,16 @@ type AgentPlanPanelProps = {
 
 const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "all", label: "Plan completo", detail: "Genera todas las fases disponibles para revisar y ejecutar." },
-  { value: "service_scan", label: "Servicios del target", detail: "RustScan, Nmap y puertos expuestos." },
-  { value: "smb_enum", label: "Enumeracion SMB", detail: "Shares, RID brute, null/guest y descarga de share." },
-  { value: "ldap_enum", label: "Enumeracion LDAP/BloodHound", detail: "LDAP, dominio, objetos y relaciones AD." },
-  { value: "kerberos_enum", label: "Enumeracion Kerberos", detail: "Hora, usuarios validos, AS-REP." },
-  { value: "credential_checks", label: "Credenciales", detail: "Kerberoast, ADCS, LSASS con contexto." },
-  { value: "exploitation", label: "Explotacion", detail: "WinRM, psexec y acceso remoto." },
-  { value: "extraction", label: "Extraccion", detail: "Registry, SAM y artefactos sensibles." },
+  { value: "reconnaissance", label: "1. Reconocimiento", detail: "IPs, dominios, DCs, DNS, SMB, Kerberos y LDAP." },
+  { value: "initial_enumeration", label: "2. Enumeracion inicial", detail: "Usuarios, grupos, shares, politicas y dominio." },
+  { value: "credential_access", label: "3. Obtencion de credenciales", detail: "Shares sensibles, GPP, AS-REP y spraying controlado." },
+  { value: "initial_access", label: "4. Acceso inicial", detail: "Credenciales contra SMB, WinRM, RDP, MSSQL o LDAP." },
+  { value: "authenticated_enumeration", label: "5. Enumeracion autenticada", detail: "BloodHound, ACLs, sesiones, SPNs, GPOs y delegaciones." },
+  { value: "exploitation", label: "6. Explotacion", detail: "Kerberoasting, ADCS, ACLs, delegaciones y password reuse." },
+  { value: "privilege_escalation", label: "7. Escalada de privilegios", detail: "De usuario a admin local o privilegios de dominio." },
+  { value: "lateral_movement", label: "8. Movimiento lateral", detail: "SMB, WinRM, RDP, PsExec y WMI." },
+  { value: "pivoting_post_exploitation", label: "9. Pivoting y post-explotacion", detail: "Subredes internas, evidencias, shares, backups, GPOs." },
+  { value: "persistence", label: "10. Persistencia", detail: "Documentar o simular persistencia solo con permiso." },
 ];
 
 export function AgentPlanPanel({
@@ -34,7 +37,7 @@ export function AgentPlanPanel({
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
   const [isTargetOpen, setIsTargetOpen] = useState(true);
   const [targetIp, setTargetIp] = useState("");
-  const [auditPhase, setAuditPhase] = useState<AuditPhase>("service_scan");
+  const [auditPhase, setAuditPhase] = useState<AuditPhase>("reconnaissance");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [ntHash, setNtHash] = useState("");
@@ -175,7 +178,9 @@ export function AgentPlanPanel({
     }
     setRunningKey(key);
     try {
-      await executeAgentCommand(targetCommands[key], targetIp, phase, workingDirectory);
+      const command = targetCommands[key];
+      const authorizedScope = command.includes(targetIp) ? targetIp : ipDc || targetIp;
+      await executeAgentCommand(command, authorizedScope, phase, workingDirectory);
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error ejecutando comando");

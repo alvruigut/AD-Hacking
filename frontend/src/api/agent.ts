@@ -16,13 +16,16 @@ export type AgentPlan = {
 
 export type AuditPhase =
   | "all"
-  | "service_scan"
-  | "smb_enum"
-  | "ldap_enum"
-  | "kerberos_enum"
-  | "credential_checks"
+  | "reconnaissance"
+  | "initial_enumeration"
+  | "credential_access"
+  | "initial_access"
+  | "authenticated_enumeration"
   | "exploitation"
-  | "extraction";
+  | "privilege_escalation"
+  | "lateral_movement"
+  | "pivoting_post_exploitation"
+  | "persistence";
 
 export type ToolRunStatus = "planned" | "running" | "completed" | "failed";
 
@@ -47,7 +50,7 @@ export async function buildAgentPlan(
   domain?: string,
   targetMode: "cidr" | "ip" = "cidr",
   targetIp?: string,
-  auditPhase: AuditPhase = "service_scan",
+  auditPhase: AuditPhase = "reconnaissance",
   context: {
     username?: string;
     password?: string;
