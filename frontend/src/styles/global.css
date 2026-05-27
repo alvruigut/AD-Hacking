@@ -576,87 +576,36 @@ button {
   min-height: 620px;
 }
 
-.terminal-output {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  height: 470px;
-  overflow: auto;
+.terminal-real {
+  height: 540px;
+  overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.42);
-  padding: 14px;
+  background: #020617;
+  padding: 10px;
 }
 
-.terminal-muted {
+.terminal-toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.terminal-status {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 4px 8px;
   color: #94a3b8;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.terminal-entry {
-  display: grid;
-  gap: 8px;
-}
-
-.terminal-prompt,
-.terminal-current-prompt {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font:
-    13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-}
-
-.terminal-prompt span,
-.terminal-current-prompt span {
+.terminal-status.connected {
   color: #5eead4;
 }
 
-.terminal-prompt strong,
-.terminal-current-prompt strong {
-  color: #f9a8d4;
-}
-
-.terminal-prompt b,
-.terminal-current-prompt b {
-  color: #f8fafc;
-}
-
-.terminal-prompt code {
-  color: #f8fafc;
-}
-
-.terminal-entry pre {
-  margin: 0;
-  color: #d1fae5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.terminal-entry small,
-.terminal-stderr {
+.terminal-status.closed {
   color: #fecdd3;
-}
-
-.terminal-input-row {
-  display: grid;
-  grid-template-columns: auto 1fr 34px;
-  gap: 10px;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.terminal-input-row input {
-  width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(2, 6, 23, 0.62);
-  color: #f8fafc;
-  border-radius: 8px;
-  padding: 10px 11px;
-  font:
-    13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 .run-error {
@@ -943,10 +892,6 @@ button {
 
   .row-actions {
     margin-left: 0;
-  }
-
-  .terminal-input-row {
-    grid-template-columns: 1fr;
   }
 
   .topbar,
