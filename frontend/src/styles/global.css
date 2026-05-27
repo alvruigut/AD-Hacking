@@ -623,17 +623,30 @@ button {
 .file-entry {
   width: 100%;
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 1fr 32px;
   align-items: center;
   gap: 8px;
   border: 0;
   background: transparent;
   color: #cbd5e1;
-  padding: 9px 8px;
+  padding: 4px;
   text-align: left;
 }
 
-.file-entry:hover {
+.file-open-button {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 8px;
+  text-align: left;
+}
+
+.file-entry:hover,
+.file-open-button:hover {
   background: rgba(45, 212, 191, 0.08);
 }
 

@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
@@ -44,6 +45,7 @@ def list_files(path: str = Query(default="data/downloads")) -> dict[str, object]
                 "path": str(item),
                 "kind": "directory" if item.is_dir() else "file",
                 "size": stat.st_size,
+                "child_count": _count_children(item) if item.is_dir() else 0,
                 "updated_at": stat.st_mtime,
             }
         )
@@ -65,8 +67,28 @@ def read_file(path: str) -> dict[str, object]:
     }
 
 
+@router.delete("/directory")
+def delete_directory(path: str) -> dict[str, str]:
+    directory = _resolve_path(path)
+    if not directory.exists():
+        raise HTTPException(status_code=404, detail="Directory not found")
+    if not directory.is_dir():
+        raise HTTPException(status_code=400, detail="Path is not a directory")
+    if directory == directory.parent:
+        raise HTTPException(status_code=400, detail="Refusing to delete filesystem root")
+    shutil.rmtree(directory)
+    return {"deleted": str(directory)}
+
+
 def _resolve_path(path: str) -> Path:
     candidate = Path(path or "data/downloads").expanduser()
     if not candidate.is_absolute():
         candidate = Path.cwd() / candidate
     return candidate.resolve()
+
+
+def _count_children(path: Path) -> int:
+    try:
+        return sum(1 for _ in path.iterdir())
+    except OSError:
+        return 0

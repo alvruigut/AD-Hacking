@@ -3,6 +3,7 @@ export type FileEntry = {
   path: string;
   kind: "directory" | "file";
   size: number;
+  child_count: number;
   updated_at: number;
 };
 
@@ -29,4 +30,14 @@ export async function readFile(path: string): Promise<string> {
   }
   const payload = await response.json();
   return payload.content;
+}
+
+export async function deleteDirectory(path: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/files/directory?path=${encodeURIComponent(path)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.detail ?? "No se pudo borrar el directorio");
+  }
 }

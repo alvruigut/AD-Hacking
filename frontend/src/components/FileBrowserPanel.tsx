@@ -1,7 +1,7 @@
-import { ArrowUp, FileText, Folder, FolderOpen, RefreshCw } from "lucide-react";
+import { ArrowUp, FileText, Folder, FolderOpen, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { listFiles, readFile, type FileEntry } from "../api/files";
+import { deleteDirectory, listFiles, readFile, type FileEntry } from "../api/files";
 
 type FileBrowserPanelProps = {
   initialPath: string;
@@ -41,6 +41,27 @@ export function FileBrowserPanel({ initialPath }: FileBrowserPanelProps) {
       setPreview("");
       setPreviewPath(entry.path);
       setError(requestError instanceof Error ? requestError.message : "No se pudo abrir el fichero");
+    }
+  }
+
+  async function removeDirectory(entry: FileEntry) {
+    if (entry.kind !== "directory") {
+      return;
+    }
+    const confirmed = window.confirm(`Borrar directorio "${entry.name}" y todo su contenido?`);
+    if (!confirmed) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteDirectory(entry.path);
+      if (previewPath?.startsWith(entry.path)) {
+        setPreview("");
+        setPreviewPath(null);
+      }
+      await refresh();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo borrar el directorio");
     }
   }
 
@@ -95,11 +116,27 @@ export function FileBrowserPanel({ initialPath }: FileBrowserPanelProps) {
         <div className="file-list">
           {entries.length === 0 && <p className="empty-text">No hay ficheros en esta carpeta.</p>}
           {entries.map((entry) => (
-            <button className="file-entry" key={entry.path} type="button" onClick={() => openEntry(entry)}>
-              {entry.kind === "directory" ? <Folder size={16} /> : <FileText size={16} />}
-              <span>{entry.name}</span>
-              <small>{entry.kind === "file" ? `${entry.size} bytes` : "directorio"}</small>
-            </button>
+            <div className="file-entry" key={entry.path}>
+              <button className="file-open-button" type="button" onClick={() => openEntry(entry)}>
+                {entry.kind === "directory" ? <Folder size={16} /> : <FileText size={16} />}
+                <span>{entry.name}</span>
+                <small>
+                  {entry.kind === "file"
+                    ? `${entry.size} bytes`
+                    : `${entry.child_count} elementos`}
+                </small>
+              </button>
+              {entry.kind === "directory" && (
+                <button
+                  aria-label={`Borrar directorio ${entry.name}`}
+                  className="icon-button danger"
+                  type="button"
+                  onClick={() => removeDirectory(entry)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
           ))}
         </div>
 
