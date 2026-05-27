@@ -1,4 +1,4 @@
-import { Check, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const categories = [
@@ -137,7 +137,7 @@ export function ToolNotebook() {
 
     try {
       const parsed = JSON.parse(saved) as Partial<ToolTemplate>[];
-      setTools(parsed.map(normalizeTool));
+      setTools(mergeDefaults(parsed.map(normalizeTool)));
     } catch {
       setTools(defaultTools);
     }
@@ -199,10 +199,6 @@ export function ToolNotebook() {
     startEditing(newTool);
   }
 
-  function importDefaults() {
-    persist(mergeDefaults(tools));
-  }
-
   function deleteTool(toolId: string) {
     persist(tools.filter((toolItem) => toolItem.id !== toolId));
   }
@@ -215,10 +211,6 @@ export function ToolNotebook() {
           <h2>Herramientas por funcionalidad</h2>
         </div>
         <div className="panel-actions">
-          <button className="run-button secondary-action" type="button" onClick={importDefaults}>
-            <RotateCcw size={16} />
-            Importar plantilla
-          </button>
           <button className="run-button" type="button" onClick={addTool}>
             <Plus size={16} />
             Agregar

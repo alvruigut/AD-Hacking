@@ -111,9 +111,6 @@ export function App() {
             <p className="eyebrow">Engagement activo</p>
             <h1>Auditando Active Directory</h1>
           </div>
-          <button type="button" onClick={() => setActiveView("findings")}>
-            Nuevo hallazgo
-          </button>
         </header>
 
         <section className="metrics-grid" aria-label="Metricas">

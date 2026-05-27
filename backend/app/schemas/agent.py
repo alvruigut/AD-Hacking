@@ -18,6 +18,16 @@ class AgentPlanRequest(BaseModel):
     target_ip: str | None = None
     domain: str | None = None
     dns_server: str | None = None
+    audit_phase: str = Field(
+        default="service_scan",
+        pattern="^(service_scan|smb_enum|ldap_enum|kerberos_enum|credential_checks|exploitation|extraction)$",
+    )
+    username: str | None = None
+    password: str | None = None
+    nt_hash: str | None = None
+    share: str | None = None
+    users_list: str | None = None
+    kali_ip: str | None = None
     rate_profile: str = Field(default="balanced", pattern="^(slow|balanced|fast)$")
 
     @model_validator(mode="after")
