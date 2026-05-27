@@ -123,7 +123,12 @@ export function App() {
                 refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
               }
             />
-            <AssetTable assets={assets} />
+            <AssetTable
+              assets={assets}
+              onChanged={() =>
+                refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
+              }
+            />
             <FindingTable findings={findings} />
           </div>
         )}

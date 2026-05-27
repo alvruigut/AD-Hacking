@@ -1,4 +1,4 @@
-import { Copy, Play, RefreshCw, Route, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Play, RefreshCw, Route, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { buildAgentPlan, executeAgentCommand, type AgentPlan } from "../api/agent";
@@ -13,6 +13,7 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
   const [scope, setScope] = useState("10.10.10.0/24");
   const [domain, setDomain] = useState("corp.local");
   const [discoveryCommand, setDiscoveryCommand] = useState("nxc smb 10.10.10.0/24");
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
   const [targetIp, setTargetIp] = useState("");
   const [targetPlan, setTargetPlan] = useState<AgentPlan | null>(null);
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
@@ -110,48 +111,58 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
 
       <div className="agent-flow">
         <section className="agent-step">
-          <div className="step-heading">
-            <Search size={18} />
+          <button
+            className="step-heading collapsible-heading"
+            type="button"
+            onClick={() => setIsDiscoveryOpen((current) => !current)}
+          >
+            {isDiscoveryOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             <div>
-              <strong>1. Mapeado CIDR</strong>
+              <strong>
+                <Search size={16} /> 1. Mapeado CIDR
+              </strong>
               <span>Ejecuta solo NetExec SMB contra el rango y guarda IP, hostname y dominio.</span>
             </div>
-          </div>
+          </button>
 
-          <div className="agent-form">
-            <label>
-              Scope CIDR
-              <input value={scope} onChange={(event) => setScope(event.target.value)} />
-            </label>
-            <label>
-              Comando editable
-              <textarea
-                className="inline-command"
-                value={discoveryCommand}
-                onChange={(event) => setDiscoveryCommand(event.target.value)}
-              />
-            </label>
-          </div>
+          {isDiscoveryOpen && (
+            <>
+              <div className="agent-form">
+                <label>
+                  Scope CIDR
+                  <input value={scope} onChange={(event) => setScope(event.target.value)} />
+                </label>
+                <label>
+                  Comando editable
+                  <textarea
+                    className="inline-command"
+                    value={discoveryCommand}
+                    onChange={(event) => setDiscoveryCommand(event.target.value)}
+                  />
+                </label>
+              </div>
 
-          <div className="command-actions">
-            <button
-              aria-label="Copiar comando de mapeado"
-              className="icon-button"
-              type="button"
-              onClick={() => handleCopy(discoveryCommand)}
-            >
-              <Copy size={16} />
-            </button>
-            <button
-              className="run-button"
-              disabled={runningKey === "discovery"}
-              type="button"
-              onClick={handleRunDiscovery}
-            >
-              {runningKey === "discovery" ? <RefreshCw size={16} /> : <Play size={16} />}
-              Ejecutar mapeado
-            </button>
-          </div>
+              <div className="command-actions">
+                <button
+                  aria-label="Copiar comando de mapeado"
+                  className="icon-button"
+                  type="button"
+                  onClick={() => handleCopy(discoveryCommand)}
+                >
+                  <Copy size={16} />
+                </button>
+                <button
+                  className="run-button"
+                  disabled={runningKey === "discovery"}
+                  type="button"
+                  onClick={handleRunDiscovery}
+                >
+                  {runningKey === "discovery" ? <RefreshCw size={16} /> : <Play size={16} />}
+                  Ejecutar mapeado
+                </button>
+              </div>
+            </>
+          )}
         </section>
 
         <section className="agent-step">

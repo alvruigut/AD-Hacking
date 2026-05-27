@@ -84,3 +84,22 @@ export async function listToolRuns(): Promise<ToolRun[]> {
   }
   return response.json();
 }
+
+export async function cancelToolRun(runId: string): Promise<ToolRun> {
+  const response = await fetch(`${apiBaseUrl}/api/agent/tool-runs/${runId}/cancel`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo cancelar la ejecucion");
+  }
+  return response.json();
+}
+
+export async function deleteToolRun(runId: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/agent/tool-runs/${runId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo eliminar la ejecucion");
+  }
+}

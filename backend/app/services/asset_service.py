@@ -39,6 +39,26 @@ class AssetService:
         self._save()
         return updated
 
+    def update(self, asset_id: str, payload: AssetCreate) -> AssetRead | None:
+        asset = self._assets.get(asset_id)
+        if asset is None:
+            return None
+        updated = asset.model_copy(
+            update={
+                **payload.model_dump(),
+                "updated_at": datetime.now(timezone.utc),
+            }
+        )
+        self._assets[asset_id] = updated
+        self._save()
+        return updated
+
+    def delete(self, asset_id: str) -> bool:
+        deleted = self._assets.pop(asset_id, None) is not None
+        if deleted:
+            self._save()
+        return deleted
+
     def _find_by_ip(self, ip_address: str) -> AssetRead | None:
         for asset in self._assets.values():
             if asset.ip_address == ip_address:

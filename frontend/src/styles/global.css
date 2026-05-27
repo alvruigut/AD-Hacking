@@ -234,15 +234,30 @@ button {
   margin-bottom: 12px;
 }
 
+.collapsible-heading {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
 .step-heading svg {
   color: #5eead4;
   flex: 0 0 auto;
   margin-top: 2px;
 }
 
+.step-heading strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .step-heading strong,
 .step-heading span {
-  display: block;
+  display: flex;
 }
 
 .step-heading span {
@@ -369,6 +384,17 @@ button {
   padding: 0;
 }
 
+.icon-button.secondary {
+  border-color: rgba(148, 163, 184, 0.32);
+  background: rgba(30, 41, 59, 0.74);
+}
+
+.icon-button.danger {
+  border-color: rgba(225, 29, 72, 0.38);
+  background: rgba(127, 29, 29, 0.36);
+  color: #fecdd3;
+}
+
 .icon-button.static {
   position: static;
 }
@@ -409,6 +435,12 @@ button {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 7px;
+  margin-left: auto;
 }
 
 .run-title svg {
@@ -461,8 +493,9 @@ button {
 
 .asset-row {
   display: grid;
-  grid-template-columns: 1.2fr 140px 1fr 1fr;
+  grid-template-columns: 1.2fr 140px 1fr 1fr auto;
   gap: 10px;
+  align-items: center;
   padding: 12px 14px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
@@ -471,6 +504,16 @@ button {
 
 .asset-row span {
   color: #94a3b8;
+}
+
+.asset-row input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.62);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
 }
 
 .finding-row {
@@ -587,6 +630,10 @@ button {
   .agent-form,
   .asset-row {
     grid-template-columns: 1fr;
+  }
+
+  .row-actions {
+    margin-left: 0;
   }
 
   .topbar,

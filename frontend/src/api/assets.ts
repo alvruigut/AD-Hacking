@@ -23,3 +23,33 @@ export async function listAssets(): Promise<Asset[]> {
   }
   return response.json();
 }
+
+export async function updateAsset(asset: Asset): Promise<Asset> {
+  const response = await fetch(`${apiBaseUrl}/api/assets/${asset.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ip_address: asset.ip_address,
+      hostname: asset.hostname || null,
+      domain: asset.domain || null,
+      kind: asset.kind,
+      open_ports: asset.open_ports,
+      services: asset.services,
+      source_tool: asset.source_tool || null,
+      notes: asset.notes || null,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo modificar la entidad");
+  }
+  return response.json();
+}
+
+export async function deleteAsset(assetId: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/assets/${assetId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo eliminar la entidad");
+  }
+}

@@ -1,5 +1,6 @@
-import { RefreshCw, TerminalSquare } from "lucide-react";
+import { RefreshCw, Square, TerminalSquare, Trash2 } from "lucide-react";
 
+import { cancelToolRun, deleteToolRun } from "../api/agent";
 import type { ToolRun } from "../api/agent";
 
 type ToolRunsPanelProps = {
@@ -8,6 +9,16 @@ type ToolRunsPanelProps = {
 };
 
 export function ToolRunsPanel({ runs, onRefresh }: ToolRunsPanelProps) {
+  async function handleCancel(runId: string) {
+    await cancelToolRun(runId);
+    onRefresh();
+  }
+
+  async function handleDelete(runId: string) {
+    await deleteToolRun(runId);
+    onRefresh();
+  }
+
   return (
     <section className="panel runs-panel">
       <div className="panel-header">
@@ -29,6 +40,26 @@ export function ToolRunsPanel({ runs, onRefresh }: ToolRunsPanelProps) {
               <strong>{run.tool}</strong>
               <span className={`status-pill ${run.status}`}>{run.status}</span>
               {run.exit_code !== null && run.exit_code !== undefined && <span>exit {run.exit_code}</span>}
+              <div className="row-actions">
+                {run.status === "running" && (
+                  <button
+                    aria-label="Cancelar ejecucion"
+                    className="icon-button danger"
+                    type="button"
+                    onClick={() => handleCancel(run.id)}
+                  >
+                    <Square size={15} />
+                  </button>
+                )}
+                <button
+                  aria-label="Eliminar ejecucion"
+                  className="icon-button danger"
+                  type="button"
+                  onClick={() => handleDelete(run.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
             <code>{run.command}</code>
             {run.error && <p className="run-error">{run.error}</p>}

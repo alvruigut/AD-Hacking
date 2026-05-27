@@ -24,6 +24,7 @@ from app.services.finding_service import finding_service
 class AgentService:
     def __init__(self) -> None:
         self._tool_runs: dict[str, ToolRunRead] = {}
+        self._processes: dict[str, subprocess.Popen[str]] = {}
         self._lock = threading.Lock()
         self._allowed_tools = {
             "rustscan",
@@ -133,6 +134,37 @@ class AgentService:
             self._tool_runs[tool_run_id] = updated
         return updated
 
+    def cancel_tool_run(self, tool_run_id: str) -> ToolRunRead | None:
+        with self._lock:
+            process = self._processes.get(tool_run_id)
+            tool_run = self._tool_runs.get(tool_run_id)
+        if tool_run is None:
+            return None
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        self._update_run(
+            tool_run_id,
+            status=ToolRunStatus.failed,
+            raw_output=tool_run.raw_output,
+            exit_code=tool_run.exit_code,
+            error="Command cancelled by operator",
+        )
+        with self._lock:
+            return self._tool_runs.get(tool_run_id)
+
+    def delete_tool_run(self, tool_run_id: str) -> bool:
+        with self._lock:
+            process = self._processes.get(tool_run_id)
+        if process is not None and process.poll() is None:
+            self.cancel_tool_run(tool_run_id)
+        with self._lock:
+            self._processes.pop(tool_run_id, None)
+            return self._tool_runs.pop(tool_run_id, None) is not None
+
     def ingest_netexec_smb(self, raw_output: str) -> list[AssetRead]:
         assets: list[AssetRead] = []
         for line in raw_output.splitlines():
@@ -218,14 +250,16 @@ class AgentService:
         auto_ingest: bool,
     ) -> None:
         try:
-            process = subprocess.run(
+            process = subprocess.Popen(
                 args,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=timeout_seconds,
-                check=False,
             )
-            output = "\n".join(part for part in [process.stdout, process.stderr] if part)
+            with self._lock:
+                self._processes[tool_run_id] = process
+            stdout, stderr = process.communicate(timeout=timeout_seconds)
+            output = "\n".join(part for part in [stdout, stderr] if part)
             tool_name = args[0].split("/")[-1]
             if auto_ingest and tool_name in {"netexec", "nxc"} and len(args) > 1 and args[1] == "smb":
                 self.ingest_netexec_smb(output)
@@ -238,6 +272,10 @@ class AgentService:
                 error=None if process.returncode == 0 else "Command exited with a non-zero code",
             )
         except subprocess.TimeoutExpired as exc:
+            with self._lock:
+                process = self._processes.get(tool_run_id)
+            if process is not None and process.poll() is None:
+                process.kill()
             output = "\n".join(part for part in [exc.stdout, exc.stderr] if isinstance(part, str))
             self._update_run(
                 tool_run_id,
@@ -247,6 +285,9 @@ class AgentService:
             )
         except Exception as exc:
             self._update_run(tool_run_id, status=ToolRunStatus.failed, error=str(exc))
+        finally:
+            with self._lock:
+                self._processes.pop(tool_run_id, None)
 
     def _update_run(
         self,

@@ -46,6 +46,21 @@ def complete_tool_run(tool_run_id: str, payload: ToolOutput) -> ToolRunRead:
     return tool_run
 
 
+@router.post("/tool-runs/{tool_run_id}/cancel", response_model=ToolRunRead)
+def cancel_tool_run(tool_run_id: str) -> ToolRunRead:
+    tool_run = agent_service.cancel_tool_run(tool_run_id)
+    if tool_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tool run not found")
+    return tool_run
+
+
+@router.delete("/tool-runs/{tool_run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_tool_run(tool_run_id: str) -> None:
+    deleted = agent_service.delete_tool_run(tool_run_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tool run not found")
+
+
 @router.post("/ingest/netexec/smb", response_model=list[AssetRead])
 def ingest_netexec_smb(payload: ToolOutput) -> list[AssetRead]:
     return agent_service.ingest_netexec_smb(payload.raw_output)
