@@ -3,6 +3,11 @@ from datetime import datetime, timezone
 from app.schemas.finding import FindingCreate, FindingRead, FindingStatus, Severity
 from app.services.json_store import json_store
 
+SAMPLE_FINDING_TITLES = {
+    "Privileged group with broad membership",
+    "SMB shares pending review",
+}
+
 
 class FindingService:
     def __init__(self) -> None:
@@ -13,8 +18,8 @@ class FindingService:
                 for item in json_store.read().get("findings", [])
             ]
         }
-        if not self._findings:
-            self._seed()
+        if self._remove_sample_findings():
+            self._save()
 
     def list(self) -> list[FindingRead]:
         return sorted(self._findings.values(), key=lambda finding: finding.created_at, reverse=True)
@@ -45,29 +50,15 @@ class FindingService:
         self._save()
         return updated
 
-    def _seed(self) -> None:
-        samples = [
-            FindingCreate(
-                title="Privileged group with broad membership",
-                description="Domain Admins contains accounts that should be reviewed before testing.",
-                severity=Severity.high,
-                affected_entities=["Domain Admins", "alvaro.admin"],
-                evidence=["Imported seed finding"],
-                source_tool="manual",
-                recommendation="Confirm business ownership and remove stale privileged members.",
-            ),
-            FindingCreate(
-                title="SMB shares pending review",
-                description="Initial engagement has shares queued for permission analysis.",
-                severity=Severity.medium,
-                affected_entities=["FILE01"],
-                evidence=["Awaiting collector output"],
-                source_tool="manual",
-                recommendation="Import NetExec or smbmap output and classify exposed paths.",
-            ),
+    def _remove_sample_findings(self) -> bool:
+        sample_ids = [
+            finding_id
+            for finding_id, finding in self._findings.items()
+            if finding.title in SAMPLE_FINDING_TITLES
         ]
-        for sample in samples:
-            self.create(sample)
+        for finding_id in sample_ids:
+            self._findings.pop(finding_id, None)
+        return bool(sample_ids)
 
     def _save(self) -> None:
         json_store.write_section(
