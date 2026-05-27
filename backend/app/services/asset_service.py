@@ -30,12 +30,14 @@ class AssetService:
         merged_ports = sorted(set(existing.open_ports + payload.open_ports))
         merged_services = sorted(set(existing.services + payload.services))
         merged_port_details = self._merge_port_details(existing.port_details, payload.port_details)
+        merged_shares = self._merge_shares(existing.shares, payload.shares)
         updated = existing.model_copy(
             update={
                 **payload.model_dump(exclude_none=True),
                 "open_ports": merged_ports,
                 "services": merged_services,
                 "port_details": merged_port_details,
+                "shares": merged_shares,
                 "updated_at": datetime.now(timezone.utc),
             }
         )
@@ -82,6 +84,21 @@ class AssetService:
                 continue
             merged[f"{port}/{protocol}"] = detail
         return sorted(merged.values(), key=lambda item: int(item.get("port", 0)))
+
+    def _merge_shares(
+        self,
+        current_shares: list[dict[str, str]],
+        next_shares: list[dict[str, str]],
+    ) -> list[dict[str, str]]:
+        merged: dict[str, dict[str, str]] = {}
+        for share in current_shares + next_shares:
+            name = share.get("name", "").strip()
+            if not name:
+                continue
+            account = share.get("account", "").strip()
+            key = f"{name.lower()}::{account.lower()}"
+            merged[key] = {**merged.get(key, {}), **share, "name": name}
+        return sorted(merged.values(), key=lambda item: (item.get("name", ""), item.get("account", "")))
 
     def _save(self) -> None:
         json_store.write_section(

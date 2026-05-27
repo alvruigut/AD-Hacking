@@ -106,6 +106,8 @@ class AgentService:
             "impacket-reg",
             "impacket-smbserver",
             "rustscan",
+            "cme",
+            "crackmapexec",
             "netexec",
             "nxc",
             "nmap",
@@ -379,19 +381,22 @@ class AgentService:
             self._processes.pop(tool_run_id, None)
             return self._tool_runs.pop(tool_run_id, None) is not None
 
-    def ingest_netexec_smb(self, raw_output: str) -> list[AssetRead]:
+    def ingest_netexec_smb(self, raw_output: str, args: list[str] | None = None) -> list[AssetRead]:
         assets: list[AssetRead] = []
+        source_tool = (args[0].split("/")[-1] if args else "netexec")
+        shares_by_ip = self._parse_smb_shares(raw_output, args or [], source_tool)
         for line in raw_output.splitlines():
             if "SMB" not in line:
                 continue
             ip_match = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", line)
             if ip_match is None:
                 continue
+            ip_address = ip_match.group(1)
             hostname = self._extract_netexec_field(line, "name") or self._extract_netexec_hostname(line)
             domain = self._extract_netexec_field(line, "domain")
             asset = asset_service.upsert(
                 AssetCreate(
-                    ip_address=ip_match.group(1),
+                    ip_address=ip_address,
                     hostname=hostname,
                     domain=domain,
                     kind=AssetKind.server,
@@ -406,7 +411,8 @@ class AgentService:
                             "scripts": [],
                         }
                     ],
-                    source_tool="netexec",
+                    shares=shares_by_ip.get(ip_address, []),
+                    source_tool=source_tool,
                     notes=line.strip(),
                 )
             )
@@ -425,6 +431,155 @@ class AgentService:
                 )
             )
         return assets
+
+    def ingest_smb_shares(self, raw_output: str, args: list[str], source_tool: str) -> list[AssetRead]:
+        shares_by_ip = self._parse_smb_shares(raw_output, args, source_tool)
+        assets: list[AssetRead] = []
+        for ip_address, shares in shares_by_ip.items():
+            asset = asset_service.upsert(
+                AssetCreate(
+                    ip_address=ip_address,
+                    open_ports=[445],
+                    services=["smb"],
+                    shares=shares,
+                    source_tool=source_tool,
+                    notes=f"{len(shares)} shares enumerados desde {source_tool}.",
+                )
+            )
+            assets.append(asset)
+
+        if assets:
+            finding_service.create(
+                FindingCreate(
+                    title="Shares SMB enumerados",
+                    description=f"Se importaron shares SMB de {len(assets)} hosts.",
+                    severity=Severity.info,
+                    affected_entities=[asset.hostname or asset.ip_address for asset in assets],
+                    evidence=[f"{asset.ip_address}: {len(asset.shares)} shares conocidos" for asset in assets],
+                    source_tool=source_tool,
+                    recommendation="Revisar permisos efectivos por usuario y descargar solo evidencias autorizadas.",
+                )
+            )
+        return assets
+
+    def _parse_smb_shares(
+        self,
+        raw_output: str,
+        args: list[str],
+        source_tool: str,
+    ) -> dict[str, list[dict[str, str]]]:
+        account = self._extract_command_account(args)
+        fallback_ip = self._extract_command_target_ip(args)
+        shares_by_ip: dict[str, list[dict[str, str]]] = {}
+        current_ip = fallback_ip
+
+        for line in raw_output.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            ip_match = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", stripped)
+            if ip_match:
+                current_ip = ip_match.group(1)
+
+            share = self._parse_share_line(stripped, source_tool)
+            if share is None or current_ip is None:
+                continue
+
+            share.update(
+                {
+                    "account": account,
+                    "source_tool": source_tool,
+                }
+            )
+            shares_by_ip.setdefault(current_ip, []).append(share)
+
+        return {
+            ip_address: self._dedupe_shares(shares)
+            for ip_address, shares in shares_by_ip.items()
+            if shares
+        }
+
+    def _parse_share_line(self, line: str, source_tool: str) -> dict[str, str] | None:
+        if self._is_share_header(line):
+            return None
+
+        if source_tool in {"netexec", "nxc", "cme", "crackmapexec"}:
+            parts = line.split()
+            if len(parts) >= 6 and parts[0].upper() == "SMB" and re.match(r"\d{1,3}(?:\.\d{1,3}){3}", parts[1]):
+                name = parts[4]
+                if not re.match(r"^[A-Za-z0-9_$.-]+$", name):
+                    return None
+                permission_parts: list[str] = []
+                remark_parts: list[str] = []
+                for part in parts[5:]:
+                    normalized = part.upper().strip(",")
+                    if normalized in {"READ", "WRITE", "NO", "ACCESS", "DENIED", "FULL"} or "," in part:
+                        permission_parts.append(part)
+                    else:
+                        remark_parts.append(part)
+                permissions = self._clean_nmap_value(" ".join(permission_parts))
+                remark = self._clean_nmap_value(" ".join(remark_parts))
+                return {"name": name, "permissions": permissions, "remark": remark}
+
+        smbmap_match = re.match(
+            r"^([A-Za-z0-9_$.-]+)\s+(READ,\s*WRITE|READ ONLY|NO ACCESS|READ|WRITE|WRITE ONLY|ADMIN|DENIED|NO)\s*(.*)$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if smbmap_match and not line.startswith(("[", "]", "|")):
+            return {
+                "name": smbmap_match.group(1),
+                "permissions": self._clean_nmap_value(smbmap_match.group(2)),
+                "remark": self._clean_nmap_value(smbmap_match.group(3) or ""),
+            }
+
+        smbclient_match = re.match(r"^([A-Za-z0-9_$.-]+)\s+(Disk|IPC|Printer)\s*(.*)$", line, flags=re.IGNORECASE)
+        if smbclient_match:
+            return {
+                "name": smbclient_match.group(1),
+                "permissions": "",
+                "remark": self._clean_nmap_value(smbclient_match.group(3) or smbclient_match.group(2)),
+            }
+
+        return None
+
+    def _is_share_header(self, line: str) -> bool:
+        lowered = line.lower()
+        return (
+            "sharename" in lowered
+            or "permissions" in lowered
+            or lowered.startswith("share ")
+            or set(line.replace(" ", "")) <= {"-", "="}
+            or lowered.startswith("reconnecting")
+        )
+
+    def _dedupe_shares(self, shares: list[dict[str, str]]) -> list[dict[str, str]]:
+        deduped: dict[str, dict[str, str]] = {}
+        for share in shares:
+            name = share.get("name", "").strip()
+            if not name:
+                continue
+            key = f"{name.lower()}::{share.get('account', '').lower()}"
+            deduped[key] = {**deduped.get(key, {}), **share, "name": name}
+        return sorted(deduped.values(), key=lambda item: item.get("name", ""))
+
+    def _extract_command_target_ip(self, args: list[str]) -> str | None:
+        joined = " ".join(args)
+        match = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", joined)
+        return match.group(1) if match else None
+
+    def _extract_command_account(self, args: list[str]) -> str:
+        for index, arg in enumerate(args):
+            if arg in {"-u", "--username", "-U"} and index + 1 < len(args):
+                return args[index + 1].strip("'\"")
+            if arg.startswith("-U") and len(arg) > 2:
+                return arg[2:].strip("'\"")
+        for arg in args:
+            match = re.search(r"([A-Za-z0-9_.-]+)/(.*?)(?::|@)", arg)
+            if match:
+                return match.group(2).strip("'\"")
+        return "anon"
 
     def build_hosts_entries(self) -> list[HostsEntry]:
         entries: list[HostsEntry] = []
@@ -484,8 +639,15 @@ class AgentService:
             stdout, stderr = process.communicate(timeout=timeout_seconds)
             output = "\n".join(part for part in [stdout, stderr] if part)
             tool_name = args[0].split("/")[-1]
-            if auto_ingest and tool_name in {"netexec", "nxc"} and len(args) > 1 and args[1] == "smb":
-                self.ingest_netexec_smb(output)
+            if (
+                auto_ingest
+                and tool_name in {"netexec", "nxc", "cme", "crackmapexec"}
+                and len(args) > 1
+                and args[1] == "smb"
+            ):
+                self.ingest_netexec_smb(output, args)
+            if auto_ingest and tool_name in {"smbclient", "smbmap"}:
+                self.ingest_smb_shares(output, args, tool_name)
             if auto_ingest and tool_name == "rustscan":
                 target_ip = self._extract_rustscan_target(args)
                 if target_ip:

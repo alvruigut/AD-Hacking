@@ -63,6 +63,19 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
 
   const selectedAsset = assets.find((asset) => asset.ip_address === targetIp);
   const selectedPhase = auditPhases.find((phase) => phase.value === auditPhase);
+  const shareOptions = useMemo(() => {
+    const shares = selectedAsset?.shares ?? [];
+    const normalizedUser = username.trim().toLowerCase();
+    return shares
+      .filter((assetShare) => {
+        if (!normalizedUser) {
+          return true;
+        }
+        const account = assetShare.account?.trim().toLowerCase();
+        return !account || account === "anon" || account === normalizedUser;
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [selectedAsset, username]);
 
   useEffect(() => {
     setDiscoveryCommand(`nxc smb ${scope}`);
@@ -82,6 +95,12 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
       setDomain((currentDomain) => currentDomain || domainOptions[0]);
     }
   }, [assets, domainOptions, targetIp]);
+
+  useEffect(() => {
+    if (shareOptions.length > 0 && (!share || !shareOptions.some((assetShare) => assetShare.name === share))) {
+      setShare(shareOptions[0].name);
+    }
+  }, [share, shareOptions]);
 
   function handleCopy(command: string) {
     navigator.clipboard?.writeText(command);
@@ -289,7 +308,23 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
                 </label>
                 <label>
                   Share
-                  <input value={share} onChange={(event) => setShare(event.target.value)} placeholder="<share>" />
+                  {shareOptions.length > 0 ? (
+                    <select value={share} onChange={(event) => setShare(event.target.value)}>
+                      <option value="">Seleccionar share</option>
+                      {shareOptions.map((assetShare) => (
+                        <option
+                          key={`${assetShare.name}-${assetShare.account ?? "anon"}`}
+                          value={assetShare.name}
+                        >
+                          {[assetShare.name, assetShare.permissions, assetShare.account]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value={share} onChange={(event) => setShare(event.target.value)} placeholder="<share>" />
+                  )}
                 </label>
                 <label>
                   Users list

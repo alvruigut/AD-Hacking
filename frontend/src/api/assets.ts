@@ -15,6 +15,13 @@ export type Asset = {
     version?: string;
     scripts?: string[];
   }>;
+  shares?: Array<{
+    name: string;
+    permissions?: string;
+    remark?: string;
+    account?: string;
+    source_tool?: string;
+  }>;
   source_tool?: string | null;
   notes?: string | null;
   created_at: string;
@@ -43,6 +50,7 @@ export async function updateAsset(asset: Asset): Promise<Asset> {
       open_ports: asset.open_ports,
       services: asset.services,
       port_details: asset.port_details ?? [],
+      shares: asset.shares ?? [],
       source_tool: asset.source_tool || null,
       notes: asset.notes || null,
     }),
