@@ -587,6 +587,13 @@ button {
   align-items: center;
 }
 
+.asset-edit-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) 150px minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .asset-row span {
   color: #94a3b8;
 }
@@ -674,7 +681,8 @@ button {
   max-width: 420px;
 }
 
-.asset-row input {
+.asset-row input,
+.asset-edit-row input {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(2, 6, 23, 0.62);
@@ -797,7 +805,8 @@ button {
 
   .agent-form,
   .tool-template-grid,
-  .asset-row {
+  .asset-row,
+  .asset-edit-row {
     grid-template-columns: 1fr;
   }
 

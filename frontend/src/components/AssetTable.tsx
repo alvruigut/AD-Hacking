@@ -133,7 +133,7 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
             <article className="asset-card" key={asset.id}>
               {isEditing ? (
                 <>
-                  <div className="asset-row asset-row-main">
+                  <div className="asset-edit-row">
                     <input
                       value={draft.hostname ?? ""}
                       placeholder="hostname"
@@ -148,13 +148,6 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                       value={draft.domain ?? ""}
                       placeholder="dominio"
                       onChange={(event) => updateDraft(asset.id, { domain: event.target.value })}
-                    />
-                    <input
-                      value={draft.kind}
-                      placeholder="tipo"
-                      onChange={(event) =>
-                        updateDraft(asset.id, { kind: event.target.value as Asset["kind"] })
-                      }
                     />
                     <div className="row-actions">
                       <button
