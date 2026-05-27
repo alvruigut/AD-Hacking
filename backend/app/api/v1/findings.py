@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas.finding import FindingCreate, FindingRead, FindingStatus, Severity
+from app.schemas.finding import FindingRead, FindingStatus, FindingUpdate, Severity
 from app.services.finding_service import finding_service
 
 router = APIRouter()
@@ -12,7 +12,7 @@ def list_findings() -> list[FindingRead]:
 
 
 @router.post("", response_model=FindingRead, status_code=status.HTTP_201_CREATED)
-def create_finding(payload: FindingCreate) -> FindingRead:
+def create_finding(payload: FindingUpdate) -> FindingRead:
     return finding_service.create(payload)
 
 
@@ -30,3 +30,18 @@ def update_severity(finding_id: str, severity: Severity) -> FindingRead:
     if finding is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")
     return finding
+
+
+@router.put("/{finding_id}", response_model=FindingRead)
+def update_finding(finding_id: str, payload: FindingUpdate) -> FindingRead:
+    finding = finding_service.update(finding_id, payload)
+    if finding is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")
+    return finding
+
+
+@router.delete("/{finding_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_finding(finding_id: str) -> None:
+    deleted = finding_service.delete(finding_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")

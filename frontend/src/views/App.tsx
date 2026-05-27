@@ -103,7 +103,9 @@ export function App() {
             <p className="eyebrow">Engagement activo</p>
             <h1>Auditando Active Directory</h1>
           </div>
-          <button type="button">Nuevo hallazgo</button>
+          <button type="button" onClick={() => setActiveView("findings")}>
+            Nuevo hallazgo
+          </button>
         </header>
 
         <section className="metrics-grid" aria-label="Metricas">
@@ -147,7 +149,14 @@ export function App() {
                 />
               </>
             )}
-            {activeView === "findings" && <FindingTable findings={findings} />}
+            {activeView === "findings" && (
+              <FindingTable
+                findings={findings}
+                onChanged={() =>
+                  refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
+                }
+              />
+            )}
             {activeView === "tools" && <ToolNotebook />}
             {activeView === "entities" && (
               <AssetTable

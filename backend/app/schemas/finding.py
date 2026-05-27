@@ -31,6 +31,10 @@ class FindingCreate(BaseModel):
     recommendation: str | None = None
 
 
+class FindingUpdate(FindingCreate):
+    status: FindingStatus = FindingStatus.new
+
+
 class FindingRead(FindingCreate):
     id: str = Field(default_factory=lambda: str(uuid4()))
     status: FindingStatus = FindingStatus.new

@@ -202,6 +202,12 @@ button {
   font-size: 20px;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .count {
   display: grid;
   place-items: center;
@@ -694,12 +700,45 @@ button {
 
 .finding-row {
   display: grid;
-  grid-template-columns: 10px 1fr;
+  grid-template-columns: 10px 1fr auto;
   gap: 14px;
+  align-items: start;
   padding: 14px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
   background: rgba(2, 6, 23, 0.42);
+}
+
+.finding-editor {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.52);
+}
+
+.finding-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finding-editor input,
+.finding-editor select,
+.finding-editor textarea {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.62);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font: inherit;
+}
+
+.finding-editor textarea {
+  min-height: 82px;
+  resize: vertical;
 }
 
 .severity-dot {
@@ -804,6 +843,7 @@ button {
   }
 
   .agent-form,
+  .finding-editor-grid,
   .tool-template-grid,
   .asset-row,
   .asset-edit-row {

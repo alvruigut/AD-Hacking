@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.schemas.finding import FindingCreate, FindingRead, FindingStatus, Severity
+from app.schemas.finding import FindingCreate, FindingRead, FindingStatus, FindingUpdate, Severity
 from app.services.json_store import json_store
 
 SAMPLE_FINDING_TITLES = {
@@ -24,8 +24,10 @@ class FindingService:
     def list(self) -> list[FindingRead]:
         return sorted(self._findings.values(), key=lambda finding: finding.created_at, reverse=True)
 
-    def create(self, payload: FindingCreate) -> FindingRead:
-        finding = FindingRead(**payload.model_dump())
+    def create(self, payload: FindingCreate | FindingUpdate) -> FindingRead:
+        payload_data = payload.model_dump()
+        finding_status = payload_data.pop("status", FindingStatus.new)
+        finding = FindingRead(**payload_data, status=finding_status)
         self._findings[finding.id] = finding
         self._save()
         return finding
@@ -49,6 +51,26 @@ class FindingService:
         self._findings[finding_id] = updated
         self._save()
         return updated
+
+    def update(self, finding_id: str, payload: FindingUpdate) -> FindingRead | None:
+        finding = self._findings.get(finding_id)
+        if finding is None:
+            return None
+        updated = finding.model_copy(
+            update={
+                **payload.model_dump(),
+                "updated_at": datetime.now(timezone.utc),
+            }
+        )
+        self._findings[finding_id] = updated
+        self._save()
+        return updated
+
+    def delete(self, finding_id: str) -> bool:
+        deleted = self._findings.pop(finding_id, None) is not None
+        if deleted:
+            self._save()
+        return deleted
 
     def _remove_sample_findings(self) -> bool:
         sample_ids = [
