@@ -1,0 +1,535 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #080b10;
+  color: #edf4f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.16), transparent 34%),
+    radial-gradient(circle at top right, rgba(190, 24, 93, 0.16), transparent 28%),
+    #080b10;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(7, 11, 17, 0.84);
+  padding: 24px 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+}
+
+.brand svg {
+  color: #2dd4bf;
+}
+
+.brand strong,
+.brand span {
+  display: block;
+}
+
+.brand strong {
+  font-size: 17px;
+}
+
+.brand span,
+.eyebrow,
+.metric-card p,
+.metric-card span,
+.finding-meta {
+  color: #94a3b8;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 11px 12px;
+  border-radius: 8px;
+}
+
+nav a.active,
+nav a:hover {
+  background: rgba(45, 212, 191, 0.1);
+  color: #f8fafc;
+}
+
+.workspace {
+  padding: 28px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+button {
+  border: 1px solid rgba(45, 212, 191, 0.5);
+  background: #0f766e;
+  color: #ecfeff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.metric-card,
+.panel,
+.state-panel {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.74);
+  border-radius: 8px;
+}
+
+.metric-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  min-height: 116px;
+}
+
+.metric-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(45, 212, 191, 0.12);
+  color: #5eead4;
+}
+
+.metric-card p {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.metric-card strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 28px;
+}
+
+.metric-card span {
+  font-size: 13px;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.workspace-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.panel-header h2 {
+  margin-bottom: 0;
+  font-size: 20px;
+}
+
+.count {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(190, 24, 93, 0.15);
+  color: #f9a8d4;
+  font-weight: 800;
+}
+
+.finding-list {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.agent-form label {
+  display: grid;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.agent-form input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.62);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font: inherit;
+}
+
+.command-list,
+.asset-list {
+  display: grid;
+  gap: 10px;
+}
+
+.command-row {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.command-row div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.command-row span {
+  color: #5eead4;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.command-row textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(0, 0, 0, 0.28);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font:
+    13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.command-row code,
+.run-row code {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  color: #f8fafc;
+}
+
+.command-row p,
+.empty-text {
+  margin-bottom: 0;
+  color: #94a3b8;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.icon-button.static {
+  position: static;
+}
+
+.command-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.run-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.run-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.run-list {
+  display: grid;
+  gap: 10px;
+}
+
+.run-row {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.run-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.run-title svg {
+  color: #5eead4;
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.status-pill.running {
+  background: rgba(234, 179, 8, 0.16);
+  color: #fde68a;
+}
+
+.status-pill.completed {
+  background: rgba(34, 197, 94, 0.16);
+  color: #bbf7d0;
+}
+
+.status-pill.failed {
+  background: rgba(225, 29, 72, 0.16);
+  color: #fecdd3;
+}
+
+.status-pill.planned {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.run-row pre {
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #d1fae5;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.run-error {
+  color: #fecdd3;
+  margin-bottom: 0;
+}
+
+.asset-row {
+  display: grid;
+  grid-template-columns: 1.2fr 140px 1fr 1fr;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.asset-row span {
+  color: #94a3b8;
+}
+
+.finding-row {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.severity-dot {
+  width: 10px;
+  min-height: 100%;
+  border-radius: 999px;
+}
+
+.severity-dot.critical,
+.severity-pill.critical {
+  background: #e11d48;
+}
+
+.severity-dot.high,
+.severity-pill.high {
+  background: #f97316;
+}
+
+.severity-dot.medium,
+.severity-pill.medium {
+  background: #eab308;
+  color: #141006;
+}
+
+.severity-dot.low,
+.severity-pill.low {
+  background: #22c55e;
+  color: #04130a;
+}
+
+.severity-dot.info,
+.severity-pill.info {
+  background: #38bdf8;
+  color: #06131a;
+}
+
+.finding-title-line {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.finding-title-line h3 {
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+.finding-main p {
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.severity-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.finding-meta span {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.state-panel {
+  padding: 18px;
+  color: #cbd5e1;
+}
+
+.state-panel.error {
+  color: #fecdd3;
+  border-color: rgba(225, 29, 72, 0.36);
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-form,
+  .asset-row {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar,
+  .finding-title-line {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+}
