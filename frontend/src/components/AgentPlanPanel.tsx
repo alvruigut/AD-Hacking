@@ -31,6 +31,18 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
     [assets],
   );
 
+  const domainOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          assets
+            .map((asset) => asset.domain?.trim())
+            .filter((assetDomain): assetDomain is string => Boolean(assetDomain)),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [assets],
+  );
+
   const selectedAsset = assets.find((asset) => asset.ip_address === targetIp);
 
   useEffect(() => {
@@ -42,6 +54,15 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
       setTargetIp(assetOptions[0].value);
     }
   }, [assetOptions, targetIp]);
+
+  useEffect(() => {
+    const targetAsset = assets.find((asset) => asset.ip_address === targetIp);
+    if (targetAsset?.domain) {
+      setDomain(targetAsset.domain);
+    } else if (domainOptions.length > 0) {
+      setDomain((currentDomain) => currentDomain || domainOptions[0]);
+    }
+  }, [assets, domainOptions, targetIp]);
 
   function handleCopy(command: string) {
     navigator.clipboard?.writeText(command);
@@ -194,7 +215,18 @@ export function AgentPlanPanel({ assets, onRunStarted }: AgentPlanPanelProps) {
             </label>
             <label>
               Dominio
-              <input value={domain} onChange={(event) => setDomain(event.target.value)} />
+              {domainOptions.length > 0 ? (
+                <select value={domain} onChange={(event) => setDomain(event.target.value)}>
+                  <option value="">Sin dominio</option>
+                  {domainOptions.map((assetDomain) => (
+                    <option key={assetDomain} value={assetDomain}>
+                      {assetDomain}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input value={domain} onChange={(event) => setDomain(event.target.value)} />
+              )}
             </label>
             <button type="button" onClick={handleBuildTargetPlan}>
               Generar comandos
