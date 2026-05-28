@@ -16,6 +16,8 @@ type OperationCommand = AgentPlan["commands"][number] & {
   notes?: string;
 };
 
+type DiscoveryMode = "cidr" | "single_ip";
+
 const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "reconnaissance", label: "1. Reconocimiento", detail: "IPs, dominios, DCs, DNS, SMB, Kerberos y LDAP." },
   { value: "initial_enumeration", label: "2. Enumeracion inicial", detail: "Usuarios, grupos, shares, politicas y dominio." },
@@ -117,6 +119,7 @@ export function AgentPlanPanel({
   onRunStarted,
 }: AgentPlanPanelProps) {
   const [scope, setScope] = useState("10.10.10.0/24");
+  const [discoveryMode, setDiscoveryMode] = useState<DiscoveryMode>("cidr");
   const [domain, setDomain] = useState("corp.local");
   const [discoveryCommand, setDiscoveryCommand] = useState("nxc smb 10.10.10.0/24");
   const [openPanels, setOpenPanels] = useState<Set<string>>(new Set(["0", "reconnaissance"]));
@@ -160,6 +163,8 @@ export function AgentPlanPanel({
   );
 
   const selectedAsset = assets.find((asset) => asset.ip_address === targetIp);
+  const discoveryTarget = scope.trim();
+  const effectiveTargetIp = targetIp || (discoveryMode === "single_ip" ? discoveryTarget : "");
   const phaseLabels = useMemo(
     () => new Map(auditPhases.map((phase) => [phase.value, phase.label])),
     [],
@@ -179,8 +184,8 @@ export function AgentPlanPanel({
   }, [selectedAsset, username]);
 
   useEffect(() => {
-    setDiscoveryCommand(`nxc smb ${scope}`);
-  }, [scope]);
+    setDiscoveryCommand(`nxc smb ${discoveryTarget || (discoveryMode === "cidr" ? "10.10.10.0/24" : "10.10.10.10")}`);
+  }, [discoveryMode, discoveryTarget]);
 
   useEffect(() => {
     if (!targetIp && assetOptions.length > 0) {
@@ -221,9 +226,13 @@ export function AgentPlanPanel({
 
   async function handleRunDiscovery() {
     setError(null);
+    if (!discoveryTarget) {
+      setError("Indica un bloque CIDR o una IP para el mapeado inicial");
+      return;
+    }
     setRunningKey("discovery");
     try {
-      await executeAgentCommand(discoveryCommand, scope, "network_discovery", workingDirectory);
+      await executeAgentCommand(discoveryCommand, discoveryTarget, "network_discovery", workingDirectory);
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error ejecutando mapeado");
@@ -234,12 +243,12 @@ export function AgentPlanPanel({
 
   async function handleBuildPhasePlan(phase: AuditPhase) {
     setError(null);
-    if (!targetIp) {
-      setError("Ejecuta primero el mapeado del CIDR y selecciona una IP detectada");
+    if (!effectiveTargetIp) {
+      setError("Selecciona una IP detectada o usa el modo IP unica en el mapeado inicial");
       return;
     }
     try {
-      const nextPlan = await buildAgentPlan(scope, domain, "ip", targetIp, phase, {
+      const nextPlan = await buildAgentPlan(discoveryTarget || effectiveTargetIp, domain, "ip", effectiveTargetIp, phase, {
         username,
         password,
         ntHash,
@@ -274,14 +283,14 @@ export function AgentPlanPanel({
 
   async function handleRunTargetCommand(key: string, phase: string, fallbackCommand = "") {
     setError(null);
-    if (!targetIp) {
-      setError("Selecciona una IP antes de ejecutar comandos de target");
+    if (!effectiveTargetIp) {
+      setError("Selecciona una IP detectada o usa el modo IP unica en el mapeado inicial");
       return;
     }
     setRunningKey(key);
     try {
       const command = targetCommands[key] ?? fallbackCommand;
-      const authorizedScope = command.includes(targetIp) ? targetIp : ipDc || targetIp;
+      const authorizedScope = command.includes(effectiveTargetIp) ? effectiveTargetIp : ipDc || effectiveTargetIp;
       await executeAgentCommand(command, authorizedScope, phase, workingDirectory);
       onRunStarted();
     } catch (requestError) {
@@ -313,9 +322,38 @@ export function AgentPlanPanel({
         </div>
 
         <div className="agent-form context-form">
+          <div className="form-control">
+            <span>Modo mapeado</span>
+            <div className="mode-toggle" role="group" aria-label="Modo de mapeado inicial">
+              <button
+                className={discoveryMode === "cidr" ? "active" : ""}
+                type="button"
+                onClick={() => {
+                  setDiscoveryMode("cidr");
+                  setScope((currentScope) => (currentScope.includes("/") ? currentScope : "10.10.10.0/24"));
+                }}
+              >
+                Bloque CIDR
+              </button>
+              <button
+                className={discoveryMode === "single_ip" ? "active" : ""}
+                type="button"
+                onClick={() => {
+                  setDiscoveryMode("single_ip");
+                  setScope((currentScope) => currentScope.replace(/\/\d+$/, "") || "10.10.10.10");
+                }}
+              >
+                IP unica
+              </button>
+            </div>
+          </div>
           <label>
-            Scope CIDR
-            <input value={scope} onChange={(event) => setScope(event.target.value)} />
+            {discoveryMode === "cidr" ? "Bloque CIDR" : "IP unica"}
+            <input
+              value={scope}
+              onChange={(event) => setScope(event.target.value)}
+              placeholder={discoveryMode === "cidr" ? "10.10.10.0/24" : "10.10.10.10"}
+            />
           </label>
           <label>
             IP / Hostname
@@ -433,7 +471,11 @@ export function AgentPlanPanel({
                   value={discoveryCommand}
                   onChange={(event) => setDiscoveryCommand(event.target.value)}
                 />
-                <p>Descubre equipos SMB dentro del scope configurado.</p>
+                <p>
+                  {discoveryMode === "cidr"
+                    ? "Descubre equipos SMB dentro del bloque configurado."
+                    : "Mapea una unica maquina para CTF o laboratorios de host individual."}
+                </p>
                 <div className="command-actions">
                   <button
                     aria-label="Copiar comando de mapeado"
