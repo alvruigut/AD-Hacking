@@ -533,10 +533,26 @@ button {
   gap: 10px;
 }
 
-.notebook-group h3 {
-  margin-bottom: 0;
+.notebook-group-heading {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(2, 6, 23, 0.34);
+  color: #f8fafc;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.notebook-group-heading svg {
   color: #5eead4;
-  font-size: 15px;
+}
+
+.notebook-group-heading span {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .tool-template-list {
@@ -544,6 +560,7 @@ button {
   gap: 10px;
 }
 
+.tool-composer,
 .tool-template {
   display: grid;
   gap: 10px;
@@ -551,6 +568,11 @@ button {
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
   background: rgba(2, 6, 23, 0.42);
+}
+
+.tool-composer {
+  margin-bottom: 16px;
+  border-color: rgba(45, 212, 191, 0.2);
 }
 
 .tool-template-title {
@@ -574,6 +596,17 @@ button {
   gap: 10px;
 }
 
+.tool-composer label {
+  display: grid;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.tool-composer input,
+.tool-composer select,
+.tool-composer textarea,
 .tool-template input,
 .tool-template select,
 .tool-template textarea {
@@ -586,6 +619,7 @@ button {
   font: inherit;
 }
 
+.tool-composer textarea,
 .tool-template textarea {
   min-height: 76px;
   resize: vertical;

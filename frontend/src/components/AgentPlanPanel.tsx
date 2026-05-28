@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { buildAgentPlan, executeAgentCommand, type AgentPlan, type AuditPhase } from "../api/agent";
 import type { Asset } from "../api/assets";
 import { listWordlists, type WordlistEntry } from "../api/wordlists";
+import { loadToolLibrary, toolLibraryUpdatedEvent, type ToolTemplate } from "./ToolNotebook";
 
 type AgentPlanPanelProps = {
   assets: Asset[];
@@ -140,6 +141,7 @@ export function AgentPlanPanel({
   const [plansByPhase, setPlansByPhase] = useState<Record<string, AgentPlan>>({});
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
   const [wordlists, setWordlists] = useState<WordlistEntry[]>([]);
+  const [toolLibrary, setToolLibrary] = useState<ToolTemplate[]>([]);
   const [reportUsers, setReportUsers] = useState<string[]>([]);
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +197,10 @@ export function AgentPlanPanel({
     () => wordlists.filter((entry) => entry.category !== "Usuarios"),
     [wordlists],
   );
+  const toolOperationTemplates = useMemo(
+    () => toolLibrary.map(toolTemplateToOperationCommand).filter((template) => template.phase !== "all"),
+    [toolLibrary],
+  );
   const reportUsersPath = `${workingDirectory.replace(/[\\/]+$/, "") || "."}/report-users.txt`;
   const hostsFileCommand = useMemo(() => {
     const lines = assets
@@ -215,6 +221,17 @@ export function AgentPlanPanel({
   useEffect(() => {
     setReportUsers(extractReportUsers(assets));
   }, [assets]);
+
+  useEffect(() => {
+    const refreshToolLibrary = () => setToolLibrary(loadToolLibrary());
+    refreshToolLibrary();
+    window.addEventListener(toolLibraryUpdatedEvent, refreshToolLibrary);
+    window.addEventListener("storage", refreshToolLibrary);
+    return () => {
+      window.removeEventListener(toolLibraryUpdatedEvent, refreshToolLibrary);
+      window.removeEventListener("storage", refreshToolLibrary);
+    };
+  }, []);
 
   useEffect(() => {
     listWordlists()
@@ -401,9 +418,6 @@ export function AgentPlanPanel({
             <p className="eyebrow">Variables globales</p>
             <h3>Parametros del engagement</h3>
           </div>
-          <button className="run-button" type="button" onClick={handleBuildAllPlans}>
-            Generar todo
-          </button>
         </div>
 
         <div className="agent-form context-form">
@@ -677,7 +691,7 @@ export function AgentPlanPanel({
             {openPanels.has(phase.value) && (
               <>
                 <div className="command-list phase-command-list">
-                  {operationTemplates
+                  {toolOperationTemplates
                     .filter((template) => template.phase === phase.value)
                     .map((template, index) => {
                       const key = commandKey("template", phase.value, template.tool, index);
@@ -700,37 +714,9 @@ export function AgentPlanPanel({
                       );
                     })}
                 </div>
-                <div className="command-actions phase-actions">
-                  <button type="button" onClick={() => handleBuildPhasePlan(phase.value)}>
-                    Generar comandos dinamicos
-                  </button>
-                </div>
-                {plansByPhase[phase.value]?.commands.length ? (
-                  <div className="command-list phase-command-list">
-                    {plansByPhase[phase.value].commands.map((command, index) => {
-                      const key = commandKey(phase.value, command.phase, command.tool, index);
-                      return (
-                        <CommandCard
-                          command={command}
-                          commandKey={key}
-                          commandValue={targetCommands[key] ?? command.command}
-                          isRunning={runningKey === key}
-                          phaseLabel={phaseLabels.get(command.phase as AuditPhase) ?? command.phase}
-                          onChange={(value) =>
-                            setTargetCommands((current) => ({
-                              ...current,
-                              [key]: value,
-                            }))
-                          }
-                          onCopy={() => handleCopy(targetCommands[key] ?? command.command)}
-                          onRun={() => handleRunTargetCommand(key, command.phase, command.command)}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="empty-text">Genera los comandos de esta fase para revisarlos aqui.</p>
-                )}
+                {toolOperationTemplates.filter((template) => template.phase === phase.value).length === 0 ? (
+                  <p className="empty-text">Agrega herramientas a esta fase desde la pestaña Tools.</p>
+                ) : null}
               </>
             )}
           </section>
@@ -918,4 +904,33 @@ function buildReportUsersCommand(path: string, users: string[]) {
   const quotedPath = shellSingleQuote(path);
   const quotedUsers = users.map((user) => shellSingleQuote(user)).join(" ");
   return `mkdir -p ${quotedDirectory}; printf '%s\\n' ${quotedUsers} | sort -u > ${quotedPath}`;
+}
+
+function toolTemplateToOperationCommand(toolTemplate: ToolTemplate): OperationCommand {
+  const phase = toolCategoryToAuditPhase(toolTemplate.group);
+  return {
+    phase,
+    name: toolTemplate.name,
+    tool: toolTemplate.tool,
+    command: toolTemplate.kind === "command" ? toolTemplate.command : `# ${toolTemplate.notes}`,
+    purpose: toolTemplate.kind === "command" ? toolTemplate.notes || "Herramienta personalizada." : "Nota operativa.",
+    expected_output: toolTemplate.kind === "command" ? "Salida revisable y evidencia para el informe." : "Nota documentada.",
+    notes: toolTemplate.authorizedTarget ? `Destino: ${toolTemplate.authorizedTarget}` : "",
+  };
+}
+
+function toolCategoryToAuditPhase(category: string): AuditPhase {
+  const phaseByCategory: Record<string, AuditPhase> = {
+    "1. Reconocimiento": "reconnaissance",
+    "2. Enumeracion inicial": "initial_enumeration",
+    "3. Obtencion de credenciales": "credential_access",
+    "4. Acceso inicial": "initial_access",
+    "5. Enumeracion autenticada": "authenticated_enumeration",
+    "6. Explotacion": "exploitation",
+    "7. Escalada de privilegios": "privilege_escalation",
+    "8. Movimiento lateral": "lateral_movement",
+    "9. Pivoting y post-explotacion": "pivoting_post_exploitation",
+    "10. Persistencia": "persistence",
+  };
+  return phaseByCategory[category] ?? "all";
 }

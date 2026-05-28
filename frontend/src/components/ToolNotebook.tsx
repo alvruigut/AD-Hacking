@@ -1,7 +1,7 @@
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const categories = [
+export const toolCategories = [
   "1. Reconocimiento",
   "2. Enumeracion inicial",
   "3. Obtencion de credenciales",
@@ -15,10 +15,10 @@ const categories = [
   "Notas Windows",
 ] as const;
 
-type ToolCategory = (typeof categories)[number];
-type ToolKind = "command" | "note";
+export type ToolCategory = (typeof toolCategories)[number];
+export type ToolKind = "command" | "note";
 
-type ToolTemplate = {
+export type ToolTemplate = {
   id: string;
   group: ToolCategory;
   kind: ToolKind;
@@ -29,8 +29,9 @@ type ToolTemplate = {
   notes: string;
 };
 
-const storageKey = "ad-redteam-tool-notebook";
-const groupOrder = new Map(categories.map((category, index) => [category, index]));
+export const toolStorageKey = "ad-redteam-tool-notebook";
+export const toolLibraryUpdatedEvent = "ad-redteam-tool-library-updated";
+const groupOrder = new Map(toolCategories.map((category, index) => [category, index]));
 
 function tool(
   id: string,
@@ -48,7 +49,7 @@ function note(id: string, group: ToolCategory, name: string, notes: string): Too
   return { id, group, kind: "note", name, tool: "nota", command: "", authorizedTarget: "localhost", notes };
 }
 
-const defaultTools: ToolTemplate[] = [
+export const defaultTools: ToolTemplate[] = [
   tool("recon-nxc-smb", "1. Reconocimiento", "NetExec SMB baseline", "nxc", "nxc smb <ip_or_cidr>", "<ip_or_cidr>"),
   tool("recon-hosts-file", "1. Reconocimiento", "Editar /etc/hosts", "nano", "nano /etc/hosts", "localhost"),
   tool("recon-rustscan-scv", "1. Reconocimiento", "RustScan + scripts/versiones", "rustscan", "rustscan -a <target_ip> --no-banner -- -sCV", "<target_ip>"),
@@ -105,7 +106,7 @@ const defaultTools: ToolTemplate[] = [
   note("note-windows-reg-save", "Notas Windows", "Registry save desde Windows", "Referencia: reg.exe save hklm\\sam, hklm\\system, hklm\\security hacia \\\\<kali_ip>\\recurso."),
 ];
 
-function normalizeTool(raw: Partial<ToolTemplate>): ToolTemplate {
+export function normalizeTool(raw: Partial<ToolTemplate>): ToolTemplate {
   const legacyGroups: Record<string, ToolCategory> = {
     Recon: "1. Reconocimiento",
     Enumeracion: "2. Enumeracion inicial",
@@ -116,7 +117,7 @@ function normalizeTool(raw: Partial<ToolTemplate>): ToolTemplate {
     "Post-explotacion": "9. Pivoting y post-explotacion",
     Infra: "9. Pivoting y post-explotacion",
   };
-  const group = categories.includes(raw.group as ToolCategory)
+  const group = toolCategories.includes(raw.group as ToolCategory)
     ? (raw.group as ToolCategory)
     : legacyGroups[String(raw.group)] ?? "1. Reconocimiento";
   const kind = raw.kind === "note" ? "note" : "command";
@@ -133,39 +134,71 @@ function normalizeTool(raw: Partial<ToolTemplate>): ToolTemplate {
   };
 }
 
-function mergeDefaults(current: ToolTemplate[]) {
+export function mergeDefaults(current: ToolTemplate[]) {
   const defaultIds = new Set(defaultTools.map((item) => item.id));
   const customTools = current.filter((item) => !defaultIds.has(item.id));
   return [...customTools, ...defaultTools];
+}
+
+export function loadToolLibrary() {
+  const saved = window.localStorage.getItem(toolStorageKey);
+  if (!saved) {
+    return defaultTools;
+  }
+
+  try {
+    const parsed = JSON.parse(saved) as Partial<ToolTemplate>[];
+    return mergeDefaults(parsed.map(normalizeTool));
+  } catch {
+    return defaultTools;
+  }
+}
+
+function createBlankTool(): ToolTemplate {
+  return tool(
+    crypto.randomUUID(),
+    "1. Reconocimiento",
+    "",
+    "nxc",
+    "nxc smb <target_ip>",
+    "<target_ip>",
+  );
+}
+
+function VariableChips({ command }: { command: string }) {
+  const variables = Array.from(new Set(command.match(/<[^>\s]+>/g) ?? []));
+  if (variables.length === 0) {
+    return null;
+  }
+  return (
+    <div className="variable-chip-list">
+      {variables.map((variable) => (
+        <span key={variable}>{variable}</span>
+      ))}
+    </div>
+  );
 }
 
 export function ToolNotebook() {
   const [tools, setTools] = useState<ToolTemplate[]>(defaultTools);
   const [drafts, setDrafts] = useState<Record<string, ToolTemplate>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(["1. Reconocimiento"]));
+  const [newTool, setNewTool] = useState<ToolTemplate>(createBlankTool);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey);
-    if (!saved) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(saved) as Partial<ToolTemplate>[];
-      setTools(mergeDefaults(parsed.map(normalizeTool)));
-    } catch {
-      setTools(defaultTools);
-    }
+    setTools(loadToolLibrary());
   }, []);
 
   function persist(nextTools: ToolTemplate[]) {
     const normalized = nextTools.map(normalizeTool);
     setTools(normalized);
-    window.localStorage.setItem(storageKey, JSON.stringify(normalized));
+    window.localStorage.setItem(toolStorageKey, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent(toolLibraryUpdatedEvent));
   }
 
   function groupedTools() {
-    return categories
+    return toolCategories
       .map((group) => ({
         group,
         tools: tools.filter((toolItem) => toolItem.group === group),
@@ -202,20 +235,30 @@ export function ToolNotebook() {
   }
 
   function addTool() {
-    const newTool = tool(
-      crypto.randomUUID(),
-      "1. Reconocimiento",
-      "Nueva herramienta",
-      "nxc",
-      "nxc smb <target_ip>",
-      "<target_ip>",
-    );
-    persist([newTool, ...tools]);
-    startEditing(newTool);
+    const normalized = normalizeTool({
+      ...newTool,
+      id: crypto.randomUUID(),
+      name: newTool.name.trim() || newTool.tool || "Nueva herramienta",
+    });
+    persist([normalized, ...tools]);
+    setOpenGroups((current) => new Set(current).add(normalized.group));
+    setNewTool(createBlankTool());
   }
 
   function deleteTool(toolId: string) {
     persist(tools.filter((toolItem) => toolItem.id !== toolId));
+  }
+
+  function toggleGroup(group: string) {
+    setOpenGroups((current) => {
+      const next = new Set(current);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
   }
 
   return (
@@ -223,20 +266,97 @@ export function ToolNotebook() {
       <div className="panel-header">
         <div>
           <p className="eyebrow">Notebook AD</p>
-          <h2>Herramientas por funcionalidad</h2>
-        </div>
-        <div className="panel-actions">
-          <button className="run-button" type="button" onClick={addTool}>
-            <Plus size={16} />
-            Agregar
-          </button>
+          <h2>Biblioteca de herramientas</h2>
         </div>
       </div>
+
+      <article className="tool-composer">
+        <div className="tool-template-grid">
+          <label>
+            Fase
+            <select
+              value={newTool.group}
+              onChange={(event) =>
+                setNewTool((current) => normalizeTool({ ...current, group: event.target.value as ToolCategory }))
+              }
+            >
+              {toolCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Tipo
+            <select
+              value={newTool.kind}
+              onChange={(event) =>
+                setNewTool((current) => normalizeTool({ ...current, kind: event.target.value as ToolKind }))
+              }
+            >
+              <option value="command">Comando Kali</option>
+              <option value="note">Nota</option>
+            </select>
+          </label>
+          <label>
+            Nombre
+            <input
+              value={newTool.name}
+              onChange={(event) => setNewTool((current) => ({ ...current, name: event.target.value }))}
+              placeholder="Kerbrute userenum"
+            />
+          </label>
+          <label>
+            Herramienta
+            <input
+              value={newTool.tool}
+              onChange={(event) => setNewTool((current) => ({ ...current, tool: event.target.value }))}
+              placeholder="kerbrute"
+            />
+          </label>
+          <label>
+            Donde va
+            <input
+              value={newTool.authorizedTarget}
+              onChange={(event) => setNewTool((current) => ({ ...current, authorizedTarget: event.target.value }))}
+              placeholder="<target_ip>, <ip_dc> o localhost"
+            />
+          </label>
+        </div>
+        {newTool.kind === "command" ? (
+          <>
+            <textarea
+              value={newTool.command}
+              onChange={(event) => setNewTool((current) => ({ ...current, command: event.target.value }))}
+              placeholder="Comando con variables: <target_ip>, <user>, <password>, <domain>"
+            />
+            <VariableChips command={newTool.command} />
+          </>
+        ) : null}
+        <textarea
+          className="notes-editor"
+          value={newTool.notes}
+          onChange={(event) => setNewTool((current) => ({ ...current, notes: event.target.value }))}
+          placeholder="Notas, permisos necesarios, evidencia esperada"
+        />
+        <div className="command-actions">
+          <button className="run-button" type="button" onClick={addTool}>
+            <Plus size={16} />
+            Agregar herramienta
+          </button>
+        </div>
+      </article>
 
       <div className="notebook-groups">
         {groupedTools().map((group) => (
           <section className="notebook-group" key={group.group}>
-            <h3>{group.group}</h3>
+            <button className="notebook-group-heading" type="button" onClick={() => toggleGroup(group.group)}>
+              {openGroups.has(group.group) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <strong>{group.group}</strong>
+              <span>{group.tools.length}</span>
+            </button>
+            {openGroups.has(group.group) && (
             <div className="tool-template-list">
               {group.tools.map((toolItem) => {
                 const isEditing = editingId === toolItem.id;
@@ -253,7 +373,7 @@ export function ToolNotebook() {
                               updateDraft(toolItem.id, { group: event.target.value as ToolCategory })
                             }
                           >
-                            {categories.map((category) => (
+                            {toolCategories.map((category) => (
                               <option key={category} value={category}>
                                 {category}
                               </option>
@@ -287,11 +407,14 @@ export function ToolNotebook() {
                           />
                         </div>
                         {draft.kind === "command" ? (
-                          <textarea
-                            value={draft.command}
-                            onChange={(event) => updateDraft(toolItem.id, { command: event.target.value })}
-                            placeholder="Comando"
-                          />
+                          <>
+                            <textarea
+                              value={draft.command}
+                              onChange={(event) => updateDraft(toolItem.id, { command: event.target.value })}
+                              placeholder="Comando"
+                            />
+                            <VariableChips command={draft.command} />
+                          </>
                         ) : null}
                         <textarea
                           className="notes-editor"
@@ -344,6 +467,7 @@ export function ToolNotebook() {
                 );
               })}
             </div>
+            )}
           </section>
         ))}
       </div>
