@@ -507,6 +507,12 @@ button {
   background: rgba(30, 41, 59, 0.74);
 }
 
+.compact-action {
+  justify-self: start;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
 .run-button:disabled {
   cursor: wait;
   opacity: 0.7;

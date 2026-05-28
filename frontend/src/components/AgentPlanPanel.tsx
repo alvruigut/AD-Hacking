@@ -19,6 +19,8 @@ type OperationCommand = AgentPlan["commands"][number] & {
 
 type DiscoveryMode = "cidr" | "single_ip";
 
+const reportNotebookStorageKey = "ad-redteam-entity-notebook";
+
 const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "reconnaissance", label: "1. Reconocimiento", detail: "IPs, dominios, DCs, DNS, SMB, Kerberos y LDAP." },
   { value: "initial_enumeration", label: "2. Enumeracion inicial", detail: "Usuarios, grupos, shares, politicas y dominio." },
@@ -138,6 +140,7 @@ export function AgentPlanPanel({
   const [plansByPhase, setPlansByPhase] = useState<Record<string, AgentPlan>>({});
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
   const [wordlists, setWordlists] = useState<WordlistEntry[]>([]);
+  const [reportUsers, setReportUsers] = useState<string[]>([]);
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,6 +195,7 @@ export function AgentPlanPanel({
     () => wordlists.filter((entry) => entry.category !== "Usuarios"),
     [wordlists],
   );
+  const reportUsersPath = `${workingDirectory.replace(/[\\/]+$/, "") || "."}/report-users.txt`;
   const hostsFileCommand = useMemo(() => {
     const lines = assets
       .map((asset) => buildHostsEntry(asset))
@@ -207,6 +211,10 @@ export function AgentPlanPanel({
   useEffect(() => {
     setDiscoveryCommand(`nxc smb ${discoveryTarget || (discoveryMode === "cidr" ? "10.10.10.0/24" : "10.10.10.10")}`);
   }, [discoveryMode, discoveryTarget]);
+
+  useEffect(() => {
+    setReportUsers(extractReportUsers(assets));
+  }, [assets]);
 
   useEffect(() => {
     listWordlists()
@@ -292,6 +300,27 @@ export function AgentPlanPanel({
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error actualizando /etc/hosts");
+    } finally {
+      setRunningKey(null);
+    }
+  }
+
+  async function handleGenerateReportUsers() {
+    setError(null);
+    const nextReportUsers = extractReportUsers(assets);
+    setReportUsers(nextReportUsers);
+    if (nextReportUsers.length === 0) {
+      setError("No he encontrado usuarios en el informe todavia");
+      return;
+    }
+    const command = buildReportUsersCommand(reportUsersPath, nextReportUsers);
+    setRunningKey("report-users");
+    try {
+      await executeAgentCommand(command, "localhost", "wordlist_generation", workingDirectory);
+      setUsersList(reportUsersPath);
+      onRunStarted();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Error generando usuarios del informe");
     } finally {
       setRunningKey(null);
     }
@@ -472,18 +501,31 @@ export function AgentPlanPanel({
             Users list
             <select
               value={usersList}
-              disabled={userWordlists.length === 0}
+              disabled={userWordlists.length === 0 && reportUsers.length === 0}
               onChange={(event) => setUsersList(event.target.value)}
             >
               <option value="">
-                {userWordlists.length === 0 ? "Sin diccionarios de usuarios" : "Seleccionar usuarios"}
+                {userWordlists.length === 0 && reportUsers.length === 0
+                  ? "Sin diccionarios de usuarios"
+                  : "Seleccionar usuarios"}
               </option>
+              {reportUsers.length > 0 && (
+                <option value={reportUsersPath}>Usuarios del informe ({reportUsers.length})</option>
+              )}
               {userWordlists.map((entry) => (
                 <option key={entry.id} value={entry.path}>
                   {entry.label}
                 </option>
               ))}
             </select>
+            <button
+              className="secondary-action compact-action"
+              disabled={runningKey === "report-users"}
+              type="button"
+              onClick={handleGenerateReportUsers}
+            >
+              {runningKey === "report-users" ? "Generando..." : "Generar usuarios del informe"}
+            </button>
           </label>
           <label>
             Wordlist
@@ -782,4 +824,98 @@ function buildHostsEntry(asset: Asset) {
 
 function shellSingleQuote(value: string) {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function extractReportUsers(assets: Asset[]) {
+  const notebook = loadReportNotebook();
+  const textBlocks = [
+    ...Object.values(notebook.domains ?? {}).flatMap((domainNotes) => [
+      domainNotes.users,
+      domainNotes.credentials,
+      domainNotes.groups,
+      domainNotes.notes,
+    ]),
+    ...Object.values(notebook.machines ?? {}).flatMap((machineNotes) => [
+      machineNotes.localUsers,
+      machineNotes.sessions,
+      machineNotes.credentials,
+      machineNotes.privilege,
+      machineNotes.notes,
+    ]),
+    ...assets.map((asset) => asset.notes ?? ""),
+  ];
+  const candidates = new Set<string>();
+  for (const block of textBlocks) {
+    for (const token of String(block ?? "").split(/[\s,;|()[\]{}"'`<>]+/)) {
+      for (const candidate of normalizeUserToken(token)) {
+        candidates.add(candidate);
+      }
+    }
+  }
+  return Array.from(candidates).sort((left, right) => left.localeCompare(right));
+}
+
+function loadReportNotebook(): {
+  domains?: Record<string, Record<string, string>>;
+  machines?: Record<string, Record<string, string>>;
+} {
+  try {
+    return JSON.parse(window.localStorage.getItem(reportNotebookStorageKey) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function normalizeUserToken(token: string) {
+  const rawToken = token.trim();
+  if (!rawToken || rawToken.length > 80) {
+    return [];
+  }
+  const withoutSecret = rawToken.split(":")[0] ?? "";
+  const userPart = withoutSecret.includes("\\")
+    ? withoutSecret.split("\\").pop() ?? ""
+    : withoutSecret.includes("@")
+      ? withoutSecret.split("@")[0] ?? ""
+      : withoutSecret;
+  const cleanUser = userPart.replace(/^[^A-Za-z0-9._$-]+|[^A-Za-z0-9._$-]+$/g, "");
+  if (!isLikelyUsername(cleanUser)) {
+    return [];
+  }
+  return [cleanUser.toLowerCase()];
+}
+
+function isLikelyUsername(value: string) {
+  if (!value || value.length < 2) {
+    return false;
+  }
+  if (/^\d+$/.test(value) || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)) {
+    return false;
+  }
+  if (/^[a-f0-9]{24,}$/i.test(value)) {
+    return false;
+  }
+  const ignored = new Set([
+    "bloodhound",
+    "credenciales",
+    "domain",
+    "dominio",
+    "grupo",
+    "grupos",
+    "hash",
+    "local",
+    "password",
+    "privilegios",
+    "sesiones",
+    "usuario",
+    "usuarios",
+  ]);
+  return !ignored.has(value.toLowerCase()) && /^[A-Za-z0-9][A-Za-z0-9._$-]*$/.test(value);
+}
+
+function buildReportUsersCommand(path: string, users: string[]) {
+  const directory = path.split(/[\\/]/).slice(0, -1).join("/") || ".";
+  const quotedDirectory = shellSingleQuote(directory);
+  const quotedPath = shellSingleQuote(path);
+  const quotedUsers = users.map((user) => shellSingleQuote(user)).join(" ");
+  return `mkdir -p ${quotedDirectory}; printf '%s\\n' ${quotedUsers} | sort -u > ${quotedPath}`;
 }
