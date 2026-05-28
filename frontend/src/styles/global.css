@@ -792,7 +792,7 @@ button {
 
 .domain-row {
   display: grid;
-  grid-template-columns: 18px minmax(160px, 1fr) 110px 80px;
+  grid-template-columns: 18px minmax(160px, 1fr) 90px 70px 110px;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -824,7 +824,7 @@ button {
 
 .domain-host-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 140px minmax(140px, 1fr);
+  grid-template-columns: minmax(140px, 1fr) 140px minmax(140px, 1fr) minmax(120px, 0.8fr);
   gap: 10px;
   align-items: center;
   border: 1px solid rgba(148, 163, 184, 0.14);
@@ -843,11 +843,12 @@ button {
 
 .note-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .note-grid label,
+.machine-note-grid label,
 .entity-section {
   display: grid;
   gap: 7px;
@@ -857,6 +858,7 @@ button {
 }
 
 .note-grid textarea,
+.machine-note-grid textarea,
 .entity-section textarea {
   width: 100%;
   min-height: 82px;
@@ -872,7 +874,7 @@ button {
 
 .asset-row {
   display: grid;
-  grid-template-columns: 34px 1.2fr 140px 1fr 110px auto;
+  grid-template-columns: 34px 1.2fr 140px 1fr 95px 95px auto;
   gap: 10px;
   align-items: center;
 }
@@ -899,7 +901,7 @@ button {
 
 .entity-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -941,6 +943,50 @@ button {
 
 .entity-section > button svg {
   color: #5eead4;
+}
+
+.domain-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.domain-kpi-grid span {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(45, 212, 191, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.3);
+  color: #cbd5e1;
+  padding: 8px 10px;
+}
+
+.domain-kpi-grid strong {
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.surface-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.surface-chip-list span {
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.08);
+  color: #99f6e4;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.machine-note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .service-summary {
@@ -1187,8 +1233,10 @@ button {
   .domain-row,
   .domain-host-row,
   .compact-grid .domain-host-row,
+  .domain-kpi-grid,
   .note-grid,
-  .entity-summary-grid {
+  .entity-summary-grid,
+  .machine-note-grid {
     grid-template-columns: 1fr;
   }
 

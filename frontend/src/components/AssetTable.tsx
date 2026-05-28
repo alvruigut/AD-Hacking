@@ -12,14 +12,21 @@ type AssetTableProps = {
 };
 
 type DomainNotebook = {
+  objectives: string;
   users: string;
+  groups: string;
   credentials: string;
+  attackPaths: string;
   notes: string;
 };
 
 type MachineNotebook = {
   localUsers: string;
+  sessions: string;
   credentials: string;
+  privilege: string;
+  evidence: string;
+  nextSteps: string;
   notes: string;
 };
 
@@ -29,8 +36,102 @@ type EntityNotebook = {
 };
 
 const notebookStorageKey = "ad-redteam-entity-notebook";
-const emptyDomainNotebook: DomainNotebook = { users: "", credentials: "", notes: "" };
-const emptyMachineNotebook: MachineNotebook = { localUsers: "", credentials: "", notes: "" };
+const emptyDomainNotebook: DomainNotebook = {
+  objectives: "",
+  users: "",
+  groups: "",
+  credentials: "",
+  attackPaths: "",
+  notes: "",
+};
+const emptyMachineNotebook: MachineNotebook = {
+  localUsers: "",
+  sessions: "",
+  credentials: "",
+  privilege: "",
+  evidence: "",
+  nextSteps: "",
+  notes: "",
+};
+
+const domainNoteFields: Array<{
+  key: keyof DomainNotebook;
+  label: string;
+  placeholder: string;
+}> = [
+  {
+    key: "objectives",
+    label: "Objetivos y alcance",
+    placeholder: "DCs, OUs interesantes, crown jewels, exclusiones, ventanas permitidas",
+  },
+  {
+    key: "users",
+    label: "Usuarios de dominio",
+    placeholder: "usuarios validos, candidatos, formato, origen de enumeracion",
+  },
+  {
+    key: "groups",
+    label: "Grupos y privilegios",
+    placeholder: "Domain Admins, admins locales, operadores, grupos anidados, owners",
+  },
+  {
+    key: "credentials",
+    label: "Credenciales de dominio",
+    placeholder: "usuario:dominio, password/hash, origen, alcance, ultimo uso validado",
+  },
+  {
+    key: "attackPaths",
+    label: "Paths de ataque",
+    placeholder: "BloodHound, ACLs, Kerberoast, AS-REP, ADCS, delegaciones, GPOs",
+  },
+  {
+    key: "notes",
+    label: "Notas del dominio",
+    placeholder: "trusts, politicas, DNS, shares clave, decisiones y pendientes",
+  },
+];
+
+const machineNoteFields: Array<{
+  key: keyof MachineNotebook;
+  label: string;
+  placeholder: string;
+}> = [
+  {
+    key: "localUsers",
+    label: "Usuarios locales",
+    placeholder: "usuarios locales, grupos, admins, cuentas de servicio",
+  },
+  {
+    key: "sessions",
+    label: "Sesiones y contexto",
+    placeholder: "usuarios logados, shares montados, procesos interesantes, quien usa esta maquina",
+  },
+  {
+    key: "credentials",
+    label: "Credenciales",
+    placeholder: "passwords, hashes, tickets, reuse, donde aparecieron y con que alcance",
+  },
+  {
+    key: "privilege",
+    label: "Privilegios y control",
+    placeholder: "admin local, RDP/WinRM/SMB, SeImpersonate, servicios modificables, rutas writable",
+  },
+  {
+    key: "evidence",
+    label: "Evidencia",
+    placeholder: "comandos, capturas, ficheros, timestamps, salida relevante reproducible",
+  },
+  {
+    key: "nextSteps",
+    label: "Proximos pasos",
+    placeholder: "validar creds, pivotar, dumpear, revisar GPO, escalar, limpiar pendiente",
+  },
+  {
+    key: "notes",
+    label: "Notas libres",
+    placeholder: "observaciones, hipotesis, riesgos, decisiones",
+  },
+];
 
 function loadEntityNotebook(): EntityNotebook {
   try {
@@ -171,6 +272,31 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
     }));
   }
 
+  function filledFieldCount(record: Record<string, string>) {
+    return Object.values(record).filter((value) => value.trim().length > 0).length;
+  }
+
+  function adSurfaceLabels(asset: Asset) {
+    const ports = new Set(displayedPortDetails(asset).map((detail) => detail.port));
+    const labels: string[] = [];
+    if (asset.kind === "domain_controller" || ports.has(88) || ports.has(389) || ports.has(636)) {
+      labels.push("AD core");
+    }
+    if (ports.has(445) || ports.has(139)) {
+      labels.push("SMB");
+    }
+    if (ports.has(5985) || ports.has(5986)) {
+      labels.push("WinRM");
+    }
+    if (ports.has(3389)) {
+      labels.push("RDP");
+    }
+    if (ports.has(53)) {
+      labels.push("DNS");
+    }
+    return labels;
+  }
+
   function displayedPortDetails(asset: Asset): PortDetail[] {
     if (asset.port_details && asset.port_details.length > 0) {
       return asset.port_details;
@@ -233,54 +359,68 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
           const domainNotebook = { ...emptyDomainNotebook, ...(entityNotebook.domains[group.domain] ?? {}) };
           const isDomainExpanded = expandedDomainIds.has(group.domain);
           const uniqueHosts = new Set(group.assets.map((asset) => asset.hostname || asset.ip_address)).size;
+          const domainControllers = group.assets.filter((asset) => asset.kind === "domain_controller").length;
+          const totalPorts = group.assets.reduce((count, asset) => count + displayedPortDetails(asset).length, 0);
+          const exposedServices = new Set(
+            group.assets.flatMap((asset) =>
+              displayedPortDetails(asset)
+                .map((detail) => detail.service?.trim())
+                .filter((service): service is string => Boolean(service)),
+            ),
+          ).size;
+          const domainNoteProgress = filledFieldCount(domainNotebook);
           return (
             <article className="domain-card" key={group.domain}>
               <button className="domain-row" type="button" onClick={() => toggleDomain(group.domain)}>
                 {isDomainExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                 <strong>{group.domain}</strong>
                 <span>{uniqueHosts} hosts</span>
-                <span>
-                  {group.assets.filter((asset) => asset.kind === "domain_controller").length} DC
-                </span>
+                <span>{domainControllers} DC</span>
+                <span>{domainNoteProgress}/{domainNoteFields.length} notas</span>
               </button>
               {isDomainExpanded && (
                 <div className="domain-details">
+                  <div className="domain-kpi-grid">
+                    <span>
+                      <strong>Hosts</strong>
+                      {uniqueHosts}
+                    </span>
+                    <span>
+                      <strong>DC</strong>
+                      {domainControllers}
+                    </span>
+                    <span>
+                      <strong>Puertos</strong>
+                      {totalPorts}
+                    </span>
+                    <span>
+                      <strong>Servicios</strong>
+                      {exposedServices}
+                    </span>
+                  </div>
                   <div className="domain-host-grid">
                     {group.assets.map((asset) => (
                       <div className="domain-host-row" key={asset.id}>
                         <strong>{asset.hostname || "sin hostname"}</strong>
                         <span>{asset.ip_address}</span>
                         <span>{asset.domain || "sin dominio"}</span>
+                        <span>{adSurfaceLabels(asset).join(", ") || "sin rol claro"}</span>
                       </div>
                     ))}
                   </div>
                   <div className="note-grid">
-                    <label>
-                      Usuarios de dominio
-                      <textarea
-                        value={domainNotebook.users}
-                        placeholder="usuarios, grupos, candidatos, rutas de enumeracion"
-                        onChange={(event) => updateDomainNotebook(group.domain, { users: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Credenciales de dominio
-                      <textarea
-                        value={domainNotebook.credentials}
-                        placeholder="usuario:dominio, hashes, origen, alcance, validez"
-                        onChange={(event) =>
-                          updateDomainNotebook(group.domain, { credentials: event.target.value })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Notas del dominio
-                      <textarea
-                        value={domainNotebook.notes}
-                        placeholder="trusts, ADCS, politicas, BloodHound, objetivos"
-                        onChange={(event) => updateDomainNotebook(group.domain, { notes: event.target.value })}
-                      />
-                    </label>
+                    {domainNoteFields.map((field) => (
+                      <label key={field.key}>
+                        {field.label}
+                        <textarea
+                          value={domainNotebook[field.key]}
+                          placeholder={field.placeholder}
+                          onChange={(event) =>
+                            updateDomainNotebook(group.domain, { [field.key]: event.target.value })
+                          }
+                        />
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}
@@ -296,8 +436,9 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
           const sharesSectionId = `${asset.id}:shares`;
           const localUsersSectionId = `${asset.id}:local-users`;
           const credentialsSectionId = `${asset.id}:credentials`;
-          const notesSectionId = `${asset.id}:notes`;
           const sectionIsExpanded = (sectionId: string) => isEditing || expandedSections.has(sectionId);
+          const surfaceLabels = adSurfaceLabels(asset);
+          const noteProgress = filledFieldCount(machineNotebook);
           return (
             <article className="asset-card" key={asset.id}>
               {isEditing ? (
@@ -401,6 +542,7 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                     <span>{asset.ip_address}</span>
                     <span>{asset.domain || "sin dominio"}</span>
                     <span>{displayedPortDetails(asset).length} puertos</span>
+                    <span>{noteProgress}/{machineNoteFields.length} notas</span>
                     <div className="row-actions">
                       <button
                         aria-label="Editar entidad"
@@ -439,6 +581,18 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                           <strong>Puertos</strong>
                           {displayedPortDetails(asset).length}
                         </span>
+                        <span>
+                          <strong>Notas</strong>
+                          {noteProgress}/{machineNoteFields.length}
+                        </span>
+                      </div>
+
+                      <div className="surface-chip-list">
+                        {surfaceLabels.length > 0 ? (
+                          surfaceLabels.map((label) => <span key={label}>{label}</span>)
+                        ) : (
+                          <span>Sin rol AD claro</span>
+                        )}
                       </div>
 
                       <section className="entity-section">
@@ -497,16 +651,23 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                           ) : (
                             <ChevronRight size={14} />
                           )}
-                          Usuarios locales
+                          Identidad, sesiones y privilegios
                         </button>
                         {sectionIsExpanded(localUsersSectionId) && (
-                          <textarea
-                            value={machineNotebook.localUsers}
-                            placeholder="usuarios locales, grupos, sesiones, privilegios"
-                            onChange={(event) =>
-                              updateMachineNotebook(asset.id, { localUsers: event.target.value })
-                            }
-                          />
+                          <div className="machine-note-grid">
+                            {machineNoteFields.slice(0, 4).map((field) => (
+                              <label key={field.key}>
+                                {field.label}
+                                <textarea
+                                  value={machineNotebook[field.key]}
+                                  placeholder={field.placeholder}
+                                  onChange={(event) =>
+                                    updateMachineNotebook(asset.id, { [field.key]: event.target.value })
+                                  }
+                                />
+                              </label>
+                            ))}
+                          </div>
                         )}
                       </section>
 
@@ -517,30 +678,25 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                           ) : (
                             <ChevronRight size={14} />
                           )}
-                          Credenciales de la maquina
+                          Evidencia y siguientes pasos
                         </button>
                         {sectionIsExpanded(credentialsSectionId) && (
-                          <textarea
-                            value={machineNotebook.credentials}
-                            placeholder="credenciales locales, hashes, reuse, evidencia"
-                            onChange={(event) =>
-                              updateMachineNotebook(asset.id, { credentials: event.target.value })
-                            }
-                          />
-                        )}
-                      </section>
-
-                      <section className="entity-section">
-                        <button type="button" onClick={() => toggleSection(notesSectionId)}>
-                          {sectionIsExpanded(notesSectionId) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          Notas de la maquina
-                        </button>
-                        {sectionIsExpanded(notesSectionId) && (
-                          <textarea
-                            value={machineNotebook.notes}
-                            placeholder={asset.notes || "observaciones, vectores, decisiones, pendientes"}
-                            onChange={(event) => updateMachineNotebook(asset.id, { notes: event.target.value })}
-                          />
+                          <div className="machine-note-grid">
+                            {machineNoteFields.slice(4).map((field) => (
+                              <label key={field.key}>
+                                {field.label}
+                                <textarea
+                                  value={machineNotebook[field.key]}
+                                  placeholder={
+                                    field.key === "notes" && asset.notes ? asset.notes : field.placeholder
+                                  }
+                                  onChange={(event) =>
+                                    updateMachineNotebook(asset.id, { [field.key]: event.target.value })
+                                  }
+                                />
+                              </label>
+                            ))}
+                          </div>
                         )}
                       </section>
                     </div>
