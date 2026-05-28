@@ -32,6 +32,21 @@ export type ToolTemplate = {
 export const toolStorageKey = "ad-redteam-tool-notebook";
 export const toolLibraryUpdatedEvent = "ad-redteam-tool-library-updated";
 const groupOrder = new Map(toolCategories.map((category, index) => [category, index]));
+const commandVariables = [
+  { label: "Target IP", value: "<target_ip>" },
+  { label: "IP/CIDR", value: "<ip_or_cidr>" },
+  { label: "DC IP", value: "<ip_dc>" },
+  { label: "Dominio", value: "<domain>" },
+  { label: "Usuario", value: "<user>" },
+  { label: "Password", value: "<password>" },
+  { label: "Hash NT", value: "<hash_nt>" },
+  { label: "Share", value: "<share>" },
+  { label: "Users list", value: "<users_list>" },
+  { label: "Wordlist", value: "<wordlist>" },
+  { label: "Fichero", value: "<file>" },
+  { label: "Puerto", value: "<port>" },
+  { label: "Kali IP", value: "<kali_ip>" },
+] as const;
 
 function tool(
   id: string,
@@ -179,6 +194,40 @@ function VariableChips({ command }: { command: string }) {
   );
 }
 
+function VariableTagButtons({ onAdd }: { onAdd: (variable: string) => void }) {
+  return (
+    <div className="variable-tag-list">
+      {commandVariables.map((variable) => (
+        <button key={variable.value} type="button" onClick={() => onAdd(variable.value)}>
+          <span>{variable.label}</span>
+          <code>{variable.value}</code>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function appendCommandVariable(command: string, variable: string) {
+  const trimmedCommand = command.trimEnd();
+  if (!trimmedCommand) {
+    return variable;
+  }
+  return `${trimmedCommand} ${variable}`;
+}
+
+function inferAuthorizedTarget(command: string) {
+  if (command.includes("<ip_dc>")) {
+    return "<ip_dc>";
+  }
+  if (command.includes("<target_ip>")) {
+    return "<target_ip>";
+  }
+  if (command.includes("<ip_or_cidr>")) {
+    return "<ip_or_cidr>";
+  }
+  return "localhost";
+}
+
 export function ToolNotebook() {
   const [tools, setTools] = useState<ToolTemplate[]>(defaultTools);
   const [drafts, setDrafts] = useState<Record<string, ToolTemplate>>({});
@@ -240,6 +289,7 @@ export function ToolNotebook() {
       ...newTool,
       id: crypto.randomUUID(),
       name: newTool.name.trim() || newTool.tool || "Nueva herramienta",
+      authorizedTarget: inferAuthorizedTarget(newTool.command),
     });
     persist([normalized, ...tools]);
     setOpenGroups((current) => new Set(current).add(normalized.group));
@@ -260,6 +310,25 @@ export function ToolNotebook() {
         next.add(group);
       }
       return next;
+    });
+  }
+
+  function addCommandVariable(variable: string) {
+    setNewTool((current) => ({
+      ...current,
+      command: appendCommandVariable(current.command, variable),
+    }));
+  }
+
+  function addDraftCommandVariable(toolId: string, variable: string) {
+    const toolItem = tools.find((candidate) => candidate.id === toolId);
+    if (!toolItem) {
+      return;
+    }
+    const draft = drafts[toolId] ?? toolItem;
+    updateDraft(toolId, {
+      command: appendCommandVariable(draft.command, variable),
+      authorizedTarget: inferAuthorizedTarget(appendCommandVariable(draft.command, variable)),
     });
   }
 
@@ -322,17 +391,10 @@ export function ToolNotebook() {
                 placeholder="kerbrute"
               />
             </label>
-            <label>
-              Donde va
-              <input
-                value={newTool.authorizedTarget}
-                onChange={(event) => setNewTool((current) => ({ ...current, authorizedTarget: event.target.value }))}
-                placeholder="<target_ip>, <ip_dc> o localhost"
-              />
-            </label>
           </div>
           {newTool.kind === "command" ? (
             <>
+              <VariableTagButtons onAdd={addCommandVariable} />
               <textarea
                 value={newTool.command}
                 onChange={(event) => setNewTool((current) => ({ ...current, command: event.target.value }))}
@@ -416,16 +478,12 @@ export function ToolNotebook() {
                             onChange={(event) => updateDraft(toolItem.id, { tool: event.target.value })}
                             placeholder="Tool"
                           />
-                          <input
-                            value={draft.authorizedTarget}
-                            onChange={(event) =>
-                              updateDraft(toolItem.id, { authorizedTarget: event.target.value })
-                            }
-                            placeholder="Target autorizado"
-                          />
                         </div>
                         {draft.kind === "command" ? (
                           <>
+                            <VariableTagButtons
+                              onAdd={(variable) => addDraftCommandVariable(toolItem.id, variable)}
+                            />
                             <textarea
                               value={draft.command}
                               onChange={(event) => updateDraft(toolItem.id, { command: event.target.value })}
