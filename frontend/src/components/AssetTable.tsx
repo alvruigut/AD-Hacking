@@ -36,6 +36,7 @@ type EntityNotebook = {
 };
 
 const notebookStorageKey = "ad-redteam-entity-notebook";
+const notebookUpdatedEvent = "ad-redteam-entity-notebook-updated";
 const emptyDomainNotebook: DomainNotebook = {
   objectives: "",
   users: "",
@@ -175,6 +176,7 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
 
   useEffect(() => {
     window.localStorage.setItem(notebookStorageKey, JSON.stringify(entityNotebook));
+    window.dispatchEvent(new Event(notebookUpdatedEvent));
   }, [entityNotebook]);
 
   function startEditing(asset: Asset) {

@@ -24,6 +24,7 @@ type OperationCommand = AgentPlan["commands"][number] & {
 type DiscoveryMode = "cidr" | "single_ip";
 
 const reportNotebookStorageKey = "ad-redteam-entity-notebook";
+const reportNotebookUpdatedEvent = "ad-redteam-entity-notebook-updated";
 
 const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "reconnaissance", label: "1. Reconocimiento", detail: "IPs, dominios, DCs, DNS, SMB, Kerberos y LDAP." },
@@ -147,7 +148,7 @@ export function AgentPlanPanel({
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
   const [wordlists, setWordlists] = useState<WordlistEntry[]>([]);
   const [toolLibrary, setToolLibrary] = useState<ToolTemplate[]>([]);
-  const [reportUsers, setReportUsers] = useState<string[]>([]);
+  const [domainUsers, setDomainUsers] = useState<string[]>([]);
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,7 +207,7 @@ export function AgentPlanPanel({
     () => toolLibrary.map(toolTemplateToOperationCommand).filter((template) => template.phase !== "all"),
     [toolLibrary],
   );
-  const reportUsersPath = `${workingDirectory.replace(/[\\/]+$/, "") || "."}/report-users.txt`;
+  const domainUsersPath = `${workingDirectory.replace(/[\\/]+$/, "") || "."}/domain-users.txt`;
   const hostsFileCommand = useMemo(() => {
     const lines = assets
       .map((asset) => buildHostsEntry(asset))
@@ -224,7 +225,14 @@ export function AgentPlanPanel({
   }, [discoveryMode, discoveryTarget]);
 
   useEffect(() => {
-    setReportUsers(extractReportUsers(assets));
+    const refreshDomainUsers = () => setDomainUsers(extractDomainUsers());
+    refreshDomainUsers();
+    window.addEventListener(reportNotebookUpdatedEvent, refreshDomainUsers);
+    window.addEventListener("storage", refreshDomainUsers);
+    return () => {
+      window.removeEventListener(reportNotebookUpdatedEvent, refreshDomainUsers);
+      window.removeEventListener("storage", refreshDomainUsers);
+    };
   }, [assets]);
 
   useEffect(() => {
@@ -290,7 +298,7 @@ export function AgentPlanPanel({
   }
 
   function handleCopy(command: string) {
-    navigator.clipboard?.writeText(command);
+    navigator.clipboard?.writeText(resolveCommandVariables(command));
   }
 
   async function handleRunDiscovery() {
@@ -322,27 +330,6 @@ export function AgentPlanPanel({
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error actualizando /etc/hosts");
-    } finally {
-      setRunningKey(null);
-    }
-  }
-
-  async function handleGenerateReportUsers() {
-    setError(null);
-    const nextReportUsers = extractReportUsers(assets);
-    setReportUsers(nextReportUsers);
-    if (nextReportUsers.length === 0) {
-      setError("No he encontrado usuarios en el informe todavia");
-      return;
-    }
-    const command = buildReportUsersCommand(reportUsersPath, nextReportUsers);
-    setRunningKey("report-users");
-    try {
-      await executeAgentCommand(command, "localhost", "wordlist_generation", workingDirectory);
-      setUsersList(reportUsersPath);
-      onRunStarted();
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Error generando usuarios del informe");
     } finally {
       setRunningKey(null);
     }
@@ -396,7 +383,8 @@ export function AgentPlanPanel({
     }
     setRunningKey(key);
     try {
-      const command = targetCommands[key] ?? fallbackCommand;
+      await ensureDomainUsersListFile();
+      const command = resolveCommandVariables(targetCommands[key] ?? fallbackCommand);
       const authorizedScope = command.includes(effectiveTargetIp) ? effectiveTargetIp : ipDc || effectiveTargetIp;
       await executeAgentCommand(command, authorizedScope, phase, workingDirectory);
       onRunStarted();
@@ -405,6 +393,50 @@ export function AgentPlanPanel({
     } finally {
       setRunningKey(null);
     }
+  }
+
+  async function ensureDomainUsersListFile() {
+    if (usersList !== domainUsersPath) {
+      return;
+    }
+    const nextDomainUsers = extractDomainUsers();
+    setDomainUsers(nextDomainUsers);
+    if (nextDomainUsers.length === 0) {
+      throw new Error("No hay usuarios de dominio en el informe AD");
+    }
+    await executeAgentCommand(buildUsersFileCommand(domainUsersPath, nextDomainUsers), "localhost", "wordlist_generation", workingDirectory);
+    onRunStarted();
+  }
+
+  function resolveCommandVariables(command: string) {
+    const domainParts = domain
+      .split(".")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const ldapBase = domainParts.map((part) => `DC=${part}`).join(",");
+    const replacements: Record<string, string> = {
+      "<target_ip>": effectiveTargetIp,
+      "<ip_or_cidr>": discoveryTarget || effectiveTargetIp,
+      "<ip_dc>": ipDc || effectiveTargetIp,
+      "<domain>": domain,
+      "<domain_part>": domainParts[0] ?? "",
+      "<user>": username,
+      "<password>": password,
+      "<hash_nt>": ntHash,
+      "<share>": share,
+      "<users_list>": usersList,
+      "<wordlist>": wordlist,
+      "<file>": filePath,
+      "<port>": port,
+      "<kali_ip>": kaliIp,
+    };
+    const commandWithLdapBase = ldapBase
+      ? replaceEvery(command, "DC=<domain_part>,DC=<domain_part>", ldapBase)
+      : command;
+    return Object.entries(replacements).reduce(
+      (nextCommand, [placeholder, value]) => (value ? replaceEvery(nextCommand, placeholder, value) : nextCommand),
+      commandWithLdapBase,
+    );
   }
 
   return (
@@ -520,16 +552,16 @@ export function AgentPlanPanel({
             Users list
             <select
               value={usersList}
-              disabled={userWordlists.length === 0 && reportUsers.length === 0}
+              disabled={userWordlists.length === 0 && domainUsers.length === 0}
               onChange={(event) => setUsersList(event.target.value)}
             >
               <option value="">
-                {userWordlists.length === 0 && reportUsers.length === 0
+                {userWordlists.length === 0 && domainUsers.length === 0
                   ? "Sin diccionarios de usuarios"
                   : "Seleccionar usuarios"}
               </option>
-              {reportUsers.length > 0 && (
-                <option value={reportUsersPath}>Usuarios del informe ({reportUsers.length})</option>
+              {domainUsers.length > 0 && (
+                <option value={domainUsersPath}>Usuarios del dominio ({domainUsers.length})</option>
               )}
               {userWordlists.map((entry) => (
                 <option key={entry.id} value={entry.path}>
@@ -537,14 +569,6 @@ export function AgentPlanPanel({
                 </option>
               ))}
             </select>
-            <button
-              className="secondary-action compact-action"
-              disabled={runningKey === "report-users"}
-              type="button"
-              onClick={handleGenerateReportUsers}
-            >
-              {runningKey === "report-users" ? "Generando..." : "Generar usuarios del informe"}
-            </button>
           </label>
           <label>
             Wordlist
@@ -804,6 +828,10 @@ function extractVariables(command: string) {
   return Array.from(new Set(command.match(/<[^>\s]+>/g) ?? []));
 }
 
+function replaceEvery(value: string, search: string, replacement: string) {
+  return value.split(search).join(replacement);
+}
+
 function buildHostsEntry(asset: Asset) {
   const ipAddress = asset.ip_address.trim();
   const hostname = asset.hostname?.trim();
@@ -825,27 +853,12 @@ function shellSingleQuote(value: string) {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function extractReportUsers(assets: Asset[]) {
+function extractDomainUsers() {
   const notebook = loadReportNotebook();
-  const textBlocks = [
-    ...Object.values(notebook.domains ?? {}).flatMap((domainNotes) => [
-      domainNotes.users,
-      domainNotes.credentials,
-      domainNotes.groups,
-      domainNotes.notes,
-    ]),
-    ...Object.values(notebook.machines ?? {}).flatMap((machineNotes) => [
-      machineNotes.localUsers,
-      machineNotes.sessions,
-      machineNotes.credentials,
-      machineNotes.privilege,
-      machineNotes.notes,
-    ]),
-    ...assets.map((asset) => asset.notes ?? ""),
-  ];
+  const textBlocks = Object.values(notebook.domains ?? {}).map((domainNotes) => domainNotes.users);
   const candidates = new Set<string>();
   for (const block of textBlocks) {
-    for (const token of String(block ?? "").split(/[\s,;|()[\]{}"'`<>]+/)) {
+    for (const token of String(block ?? "").split(/[\r\n,;]+/)) {
       for (const candidate of normalizeUserToken(token)) {
         candidates.add(candidate);
       }
@@ -911,7 +924,7 @@ function isLikelyUsername(value: string) {
   return !ignored.has(value.toLowerCase()) && /^[A-Za-z0-9][A-Za-z0-9._$-]*$/.test(value);
 }
 
-function buildReportUsersCommand(path: string, users: string[]) {
+function buildUsersFileCommand(path: string, users: string[]) {
   const directory = path.split(/[\\/]/).slice(0, -1).join("/") || ".";
   const quotedDirectory = shellSingleQuote(directory);
   const quotedPath = shellSingleQuote(path);
