@@ -19,6 +19,11 @@ export function ToolRunsPanel({ runs, onRefresh }: ToolRunsPanelProps) {
     onRefresh();
   }
 
+  async function handleClearAll() {
+    await Promise.all(runs.map((run) => deleteToolRun(run.id)));
+    onRefresh();
+  }
+
   return (
     <section className="panel runs-panel">
       <div className="panel-header">
@@ -26,9 +31,19 @@ export function ToolRunsPanel({ runs, onRefresh }: ToolRunsPanelProps) {
           <p className="eyebrow">Ejecuciones</p>
           <h2>Output desde Kali</h2>
         </div>
-        <button aria-label="Refrescar ejecuciones" className="icon-button static" onClick={onRefresh}>
-          <RefreshCw size={16} />
-        </button>
+        <div className="run-panel-actions">
+          <button
+            className="secondary-action"
+            disabled={runs.length === 0}
+            type="button"
+            onClick={handleClearAll}
+          >
+            Clear all
+          </button>
+          <button aria-label="Refrescar ejecuciones" className="icon-button static" type="button" onClick={onRefresh}>
+            <RefreshCw size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="run-list">

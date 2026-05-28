@@ -574,6 +574,12 @@ button {
   gap: 10px;
 }
 
+.run-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .notebook-groups {
   display: grid;
   gap: 16px;
