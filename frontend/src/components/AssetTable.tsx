@@ -1,5 +1,5 @@
 import { Check, ChevronDown, ChevronRight, Pencil, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { deleteAsset, updateAsset } from "../api/assets";
 import type { Asset } from "../api/assets";
@@ -11,10 +11,70 @@ type AssetTableProps = {
   onChanged: () => void;
 };
 
+type DomainNotebook = {
+  users: string;
+  credentials: string;
+  notes: string;
+};
+
+type MachineNotebook = {
+  localUsers: string;
+  credentials: string;
+  notes: string;
+};
+
+type EntityNotebook = {
+  domains: Record<string, DomainNotebook>;
+  machines: Record<string, MachineNotebook>;
+};
+
+const notebookStorageKey = "ad-redteam-entity-notebook";
+const emptyDomainNotebook: DomainNotebook = { users: "", credentials: "", notes: "" };
+const emptyMachineNotebook: MachineNotebook = { localUsers: "", credentials: "", notes: "" };
+
+function loadEntityNotebook(): EntityNotebook {
+  try {
+    const rawNotebook = window.localStorage.getItem(notebookStorageKey);
+    if (!rawNotebook) {
+      return { domains: {}, machines: {} };
+    }
+    const parsedNotebook = JSON.parse(rawNotebook) as Partial<EntityNotebook>;
+    return {
+      domains: parsedNotebook.domains ?? {},
+      machines: parsedNotebook.machines ?? {},
+    };
+  } catch {
+    return { domains: {}, machines: {} };
+  }
+}
+
 export function AssetTable({ assets, onChanged }: AssetTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedDomainIds, setExpandedDomainIds] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [entityNotebook, setEntityNotebook] = useState<EntityNotebook>(loadEntityNotebook);
   const [drafts, setDrafts] = useState<Record<string, Asset>>({});
+
+  const domainGroups = useMemo(() => {
+    const groups = new Map<string, Asset[]>();
+    for (const asset of assets) {
+      const domainKey = asset.domain?.trim() || "Sin dominio";
+      groups.set(domainKey, [...(groups.get(domainKey) ?? []), asset]);
+    }
+    return Array.from(groups.entries())
+      .map(([domain, domainAssets]) => ({
+        domain,
+        assets: domainAssets.sort((left, right) =>
+          (left.hostname || left.ip_address).localeCompare(right.hostname || right.ip_address),
+        ),
+      }))
+      .sort((left, right) => left.domain.localeCompare(right.domain));
+  }, [assets]);
+
+  useEffect(() => {
+    window.localStorage.setItem(notebookStorageKey, JSON.stringify(entityNotebook));
+  }, [entityNotebook]);
 
   function startEditing(asset: Asset) {
     setEditingId(asset.id);
@@ -65,6 +125,50 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
       }
       return next;
     });
+  }
+
+  function toggleDomain(domain: string) {
+    setExpandedDomainIds((current) => {
+      const next = new Set(current);
+      if (next.has(domain)) {
+        next.delete(domain);
+      } else {
+        next.add(domain);
+      }
+      return next;
+    });
+  }
+
+  function toggleSection(sectionId: string) {
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  }
+
+  function updateDomainNotebook(domain: string, patch: Partial<DomainNotebook>) {
+    setEntityNotebook((current) => ({
+      ...current,
+      domains: {
+        ...current.domains,
+        [domain]: { ...emptyDomainNotebook, ...(current.domains[domain] ?? {}), ...patch },
+      },
+    }));
+  }
+
+  function updateMachineNotebook(assetId: string, patch: Partial<MachineNotebook>) {
+    setEntityNotebook((current) => ({
+      ...current,
+      machines: {
+        ...current.machines,
+        [assetId]: { ...emptyMachineNotebook, ...(current.machines[assetId] ?? {}), ...patch },
+      },
+    }));
   }
 
   function displayedPortDetails(asset: Asset): PortDetail[] {
@@ -125,10 +229,75 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
 
       <div className="asset-list">
         {assets.length === 0 && <p className="empty-text">Aun no hay equipos importados.</p>}
+        {domainGroups.map((group) => {
+          const domainNotebook = { ...emptyDomainNotebook, ...(entityNotebook.domains[group.domain] ?? {}) };
+          const isDomainExpanded = expandedDomainIds.has(group.domain);
+          const uniqueHosts = new Set(group.assets.map((asset) => asset.hostname || asset.ip_address)).size;
+          return (
+            <article className="domain-card" key={group.domain}>
+              <button className="domain-row" type="button" onClick={() => toggleDomain(group.domain)}>
+                {isDomainExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                <strong>{group.domain}</strong>
+                <span>{uniqueHosts} hosts</span>
+                <span>
+                  {group.assets.filter((asset) => asset.kind === "domain_controller").length} DC
+                </span>
+              </button>
+              {isDomainExpanded && (
+                <div className="domain-details">
+                  <div className="domain-host-grid">
+                    {group.assets.map((asset) => (
+                      <div className="domain-host-row" key={asset.id}>
+                        <strong>{asset.hostname || "sin hostname"}</strong>
+                        <span>{asset.ip_address}</span>
+                        <span>{asset.domain || "sin dominio"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="note-grid">
+                    <label>
+                      Usuarios de dominio
+                      <textarea
+                        value={domainNotebook.users}
+                        placeholder="usuarios, grupos, candidatos, rutas de enumeracion"
+                        onChange={(event) => updateDomainNotebook(group.domain, { users: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Credenciales de dominio
+                      <textarea
+                        value={domainNotebook.credentials}
+                        placeholder="usuario:dominio, hashes, origen, alcance, validez"
+                        onChange={(event) =>
+                          updateDomainNotebook(group.domain, { credentials: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Notas del dominio
+                      <textarea
+                        value={domainNotebook.notes}
+                        placeholder="trusts, ADCS, politicas, BloodHound, objetivos"
+                        onChange={(event) => updateDomainNotebook(group.domain, { notes: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })}
         {assets.map((asset) => {
           const isEditing = editingId === asset.id;
           const isExpanded = expandedIds.has(asset.id) || isEditing;
           const draft = drafts[asset.id] ?? asset;
+          const machineNotebook = { ...emptyMachineNotebook, ...(entityNotebook.machines[asset.id] ?? {}) };
+          const portsSectionId = `${asset.id}:ports`;
+          const sharesSectionId = `${asset.id}:shares`;
+          const localUsersSectionId = `${asset.id}:local-users`;
+          const credentialsSectionId = `${asset.id}:credentials`;
+          const notesSectionId = `${asset.id}:notes`;
+          const sectionIsExpanded = (sectionId: string) => isEditing || expandedSections.has(sectionId);
           return (
             <article className="asset-card" key={asset.id}>
               {isEditing ? (
@@ -252,23 +421,128 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
                     </div>
                   </div>
                   {isExpanded && (
-                    <div className="asset-details service-summary">
-                      {displayedPortDetails(asset).length > 0 ? (
-                        displayedPortDetails(asset).map((detail) => (
-                          <span className="service-chip" key={`${detail.port}-${detail.protocol}`}>
-                            <span className="port-line">
-                              <strong>{detail.port}/{detail.protocol ?? "tcp"}</strong>
-                              <b>{detail.service || "?"}</b>
-                            </span>
-                            {detail.version && <span>{detail.version}</span>}
-                            {detail.scripts && detail.scripts.length > 0 && (
-                              <small>{detail.scripts.slice(0, 2).join(" · ")}</small>
+                    <div className="asset-details entity-sections">
+                      <div className="entity-summary-grid">
+                        <span>
+                          <strong>DC</strong>
+                          {asset.kind === "domain_controller" ? "si" : "no"}
+                        </span>
+                        <span>
+                          <strong>IP</strong>
+                          {asset.ip_address}
+                        </span>
+                        <span>
+                          <strong>Dominio</strong>
+                          {asset.domain || "sin dominio"}
+                        </span>
+                        <span>
+                          <strong>Puertos</strong>
+                          {displayedPortDetails(asset).length}
+                        </span>
+                      </div>
+
+                      <section className="entity-section">
+                        <button type="button" onClick={() => toggleSection(portsSectionId)}>
+                          {sectionIsExpanded(portsSectionId) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          Puertos, servicios y versiones
+                        </button>
+                        {sectionIsExpanded(portsSectionId) && (
+                          <div className="service-summary">
+                            {displayedPortDetails(asset).length > 0 ? (
+                              displayedPortDetails(asset).map((detail) => (
+                                <span className="service-chip" key={`${detail.port}-${detail.protocol}`}>
+                                  <span className="port-line">
+                                    <strong>{detail.port}/{detail.protocol ?? "tcp"}</strong>
+                                    <b>{detail.service || "?"}</b>
+                                  </span>
+                                  {detail.version && <span>{detail.version}</span>}
+                                  {detail.scripts && detail.scripts.length > 0 && (
+                                    <small>{detail.scripts.slice(0, 2).join(" · ")}</small>
+                                  )}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="empty-text">Sin puertos registrados.</span>
                             )}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="empty-text">Sin puertos registrados.</span>
-                      )}
+                          </div>
+                        )}
+                      </section>
+
+                      <section className="entity-section">
+                        <button type="button" onClick={() => toggleSection(sharesSectionId)}>
+                          {sectionIsExpanded(sharesSectionId) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          Shares SMB
+                        </button>
+                        {sectionIsExpanded(sharesSectionId) && (
+                          <div className="domain-host-grid compact-grid">
+                            {asset.shares && asset.shares.length > 0 ? (
+                              asset.shares.map((share) => (
+                                <div className="domain-host-row" key={`${share.name}-${share.account ?? ""}`}>
+                                  <strong>{share.name}</strong>
+                                  <span>{share.permissions || "sin permisos"}</span>
+                                  <span>{share.remark || share.account || "sin detalle"}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <span className="empty-text">Sin shares registrados.</span>
+                            )}
+                          </div>
+                        )}
+                      </section>
+
+                      <section className="entity-section">
+                        <button type="button" onClick={() => toggleSection(localUsersSectionId)}>
+                          {sectionIsExpanded(localUsersSectionId) ? (
+                            <ChevronDown size={14} />
+                          ) : (
+                            <ChevronRight size={14} />
+                          )}
+                          Usuarios locales
+                        </button>
+                        {sectionIsExpanded(localUsersSectionId) && (
+                          <textarea
+                            value={machineNotebook.localUsers}
+                            placeholder="usuarios locales, grupos, sesiones, privilegios"
+                            onChange={(event) =>
+                              updateMachineNotebook(asset.id, { localUsers: event.target.value })
+                            }
+                          />
+                        )}
+                      </section>
+
+                      <section className="entity-section">
+                        <button type="button" onClick={() => toggleSection(credentialsSectionId)}>
+                          {sectionIsExpanded(credentialsSectionId) ? (
+                            <ChevronDown size={14} />
+                          ) : (
+                            <ChevronRight size={14} />
+                          )}
+                          Credenciales de la maquina
+                        </button>
+                        {sectionIsExpanded(credentialsSectionId) && (
+                          <textarea
+                            value={machineNotebook.credentials}
+                            placeholder="credenciales locales, hashes, reuse, evidencia"
+                            onChange={(event) =>
+                              updateMachineNotebook(asset.id, { credentials: event.target.value })
+                            }
+                          />
+                        )}
+                      </section>
+
+                      <section className="entity-section">
+                        <button type="button" onClick={() => toggleSection(notesSectionId)}>
+                          {sectionIsExpanded(notesSectionId) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          Notas de la maquina
+                        </button>
+                        {sectionIsExpanded(notesSectionId) && (
+                          <textarea
+                            value={machineNotebook.notes}
+                            placeholder={asset.notes || "observaciones, vectores, decisiones, pendientes"}
+                            onChange={(event) => updateMachineNotebook(asset.id, { notes: event.target.value })}
+                          />
+                        )}
+                      </section>
                     </div>
                   )}
                 </>

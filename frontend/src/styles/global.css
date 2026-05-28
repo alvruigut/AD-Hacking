@@ -781,6 +781,95 @@ button {
   background: rgba(2, 6, 23, 0.42);
 }
 
+.domain-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 8px;
+  background: rgba(8, 47, 73, 0.34);
+}
+
+.domain-row {
+  display: grid;
+  grid-template-columns: 18px minmax(160px, 1fr) 110px 80px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.domain-row svg {
+  color: #5eead4;
+}
+
+.domain-row span {
+  color: #94a3b8;
+}
+
+.domain-details {
+  display: grid;
+  gap: 12px;
+  margin-left: 28px;
+}
+
+.domain-host-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.domain-host-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 140px minmax(140px, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.32);
+  padding: 8px 10px;
+}
+
+.domain-host-row span {
+  color: #94a3b8;
+}
+
+.compact-grid .domain-host-row {
+  grid-template-columns: minmax(130px, 0.8fr) minmax(130px, 0.8fr) minmax(160px, 1fr);
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.note-grid label,
+.entity-section {
+  display: grid;
+  gap: 7px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.note-grid textarea,
+.entity-section textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.62);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font:
+    13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 .asset-row {
   display: grid;
   grid-template-columns: 34px 1.2fr 140px 1fr 110px auto;
@@ -801,6 +890,57 @@ button {
 
 .asset-details {
   margin-left: 44px;
+}
+
+.entity-sections {
+  display: grid;
+  gap: 10px;
+}
+
+.entity-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.entity-summary-grid span {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.32);
+  color: #cbd5e1;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.entity-summary-grid strong {
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.entity-section {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.24);
+  padding: 10px;
+}
+
+.entity-section > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+  padding: 0;
+  font-weight: 800;
+}
+
+.entity-section > button svg {
+  color: #5eead4;
 }
 
 .service-summary {
@@ -1043,11 +1183,17 @@ button {
   .file-browser-grid,
   .file-path-row,
   .asset-row,
-  .asset-edit-row {
+  .asset-edit-row,
+  .domain-row,
+  .domain-host-row,
+  .compact-grid .domain-host-row,
+  .note-grid,
+  .entity-summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .asset-details {
+  .asset-details,
+  .domain-details {
     margin-left: 0;
   }
 
