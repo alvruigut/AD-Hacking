@@ -14,6 +14,15 @@ import { ToolRunsPanel } from "../components/ToolRunsPanel";
 
 type ActiveView = "dashboard" | "files" | "findings" | "tools" | "entities" | "terminal";
 
+const viewTitles: Record<ActiveView, string> = {
+  dashboard: "Panel de operaciones",
+  files: "Ficheros",
+  findings: "Hallazgos",
+  tools: "Tools",
+  entities: "Entidades",
+  terminal: "Terminal",
+};
+
 export function App() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -111,8 +120,7 @@ export function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Engagement activo</p>
-            <h1>Panel de operaciones</h1>
+            <h1>{viewTitles[activeView]}</h1>
           </div>
         </header>
 

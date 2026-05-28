@@ -92,7 +92,7 @@ export function FindingTable({ findings, onChanged }: FindingTableProps) {
       <div className="panel-header">
         <div>
           <p className="eyebrow">Hallazgos</p>
-          <h2>Cola centralizada</h2>
+          <h2>Hallazgos</h2>
         </div>
         <div className="panel-actions">
           <span className="count">{findings.length}</span>
