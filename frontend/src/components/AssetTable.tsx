@@ -347,8 +347,8 @@ export function AssetTable({ assets, onChanged }: AssetTableProps) {
     <section className="panel asset-panel">
       <div className="panel-header">
         <div>
-          <p className="eyebrow">Entidades AD</p>
-          <h2>Equipos detectados</h2>
+          <p className="eyebrow">Informe AD</p>
+          <h2>Writeup del entorno</h2>
         </div>
         <span className="count">{assets.length}</span>
       </div>

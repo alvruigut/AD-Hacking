@@ -1,30 +1,26 @@
-import { Activity, Database, FileArchive, FileWarning, ShieldAlert, TerminalSquare } from "lucide-react";
+import { Activity, Database, FileArchive, ShieldAlert, TerminalSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { listAssets, type Asset } from "../api/assets";
 import { listToolRuns, type ToolRun } from "../api/agent";
-import { listFindings, type Finding } from "../api/findings";
 import { AgentPlanPanel } from "../components/AgentPlanPanel";
 import { AssetTable } from "../components/AssetTable";
 import { FileBrowserPanel } from "../components/FileBrowserPanel";
-import { FindingTable } from "../components/FindingTable";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { ToolNotebook } from "../components/ToolNotebook";
 import { ToolRunsPanel } from "../components/ToolRunsPanel";
 
-type ActiveView = "dashboard" | "files" | "findings" | "tools" | "entities" | "terminal";
+type ActiveView = "dashboard" | "files" | "tools" | "report" | "terminal";
 
 const viewTitles: Record<ActiveView, string> = {
   dashboard: "Panel de operaciones",
   files: "Ficheros",
-  findings: "Hallazgos",
   tools: "Tools",
-  entities: "Entidades",
+  report: "Informe",
   terminal: "Terminal",
 };
 
 export function App() {
-  const [findings, setFindings] = useState<Finding[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [runs, setRuns] = useState<ToolRun[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -33,12 +29,10 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   async function refreshWorkspace() {
-    const [nextFindings, nextAssets, nextRuns] = await Promise.all([
-      listFindings(),
+    const [nextAssets, nextRuns] = await Promise.all([
       listAssets(),
       listToolRuns(),
     ]);
-    setFindings(nextFindings);
     setAssets(nextAssets);
     setRuns(nextRuns);
   }
@@ -87,13 +81,6 @@ export function App() {
             <FileArchive size={18} /> Ficheros
           </button>
           <button
-            className={activeView === "findings" ? "active" : ""}
-            type="button"
-            onClick={() => setActiveView("findings")}
-          >
-            <FileWarning size={18} /> Hallazgos
-          </button>
-          <button
             className={activeView === "tools" ? "active" : ""}
             type="button"
             onClick={() => setActiveView("tools")}
@@ -101,11 +88,11 @@ export function App() {
             <TerminalSquare size={18} /> Tools
           </button>
           <button
-            className={activeView === "entities" ? "active" : ""}
+            className={activeView === "report" ? "active" : ""}
             type="button"
-            onClick={() => setActiveView("entities")}
+            onClick={() => setActiveView("report")}
           >
-            <Database size={18} /> Entidades
+            <Database size={18} /> Informe
           </button>
           <button
             className={activeView === "terminal" ? "active" : ""}
@@ -124,7 +111,7 @@ export function App() {
           </div>
         </header>
 
-        {isLoading && <div className="state-panel">Cargando hallazgos...</div>}
+        {isLoading && <div className="state-panel">Cargando workspace...</div>}
         {error && <div className="state-panel error">{error}</div>}
         {!isLoading && !error && (
           <div className="workspace-grid">
@@ -147,16 +134,8 @@ export function App() {
               </>
             )}
             {activeView === "files" && <FileBrowserPanel initialPath={workingDirectory} />}
-            {activeView === "findings" && (
-              <FindingTable
-                findings={findings}
-                onChanged={() =>
-                  refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
-                }
-              />
-            )}
             {activeView === "tools" && <ToolNotebook />}
-            {activeView === "entities" && (
+            {activeView === "report" && (
               <AssetTable
                 assets={assets}
                 onChanged={() =>
