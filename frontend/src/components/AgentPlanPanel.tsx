@@ -182,6 +182,17 @@ export function AgentPlanPanel({
       })
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [selectedAsset, username]);
+  const hostsFileCommand = useMemo(() => {
+    const lines = assets
+      .map((asset) => buildHostsEntry(asset))
+      .filter((entry): entry is string => Boolean(entry));
+    return lines
+      .map((line) => {
+        const quotedLine = shellSingleQuote(line);
+        return `grep -qxF ${quotedLine} /etc/hosts || echo ${quotedLine} | sudo tee -a /etc/hosts >/dev/null`;
+      })
+      .join("; ");
+  }, [assets]);
 
   useEffect(() => {
     setDiscoveryCommand(`nxc smb ${discoveryTarget || (discoveryMode === "cidr" ? "10.10.10.0/24" : "10.10.10.10")}`);
@@ -236,6 +247,23 @@ export function AgentPlanPanel({
       onRunStarted();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Error ejecutando mapeado");
+    } finally {
+      setRunningKey(null);
+    }
+  }
+
+  async function handleRunHostsUpdate() {
+    setError(null);
+    if (!hostsFileCommand) {
+      setError("No hay hosts con IP, dominio y hostname para preparar /etc/hosts");
+      return;
+    }
+    setRunningKey("hosts-file");
+    try {
+      await executeAgentCommand(hostsFileCommand, discoveryTarget || effectiveTargetIp || "localhost", "hosts_file", workingDirectory);
+      onRunStarted();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Error actualizando /etc/hosts");
     } finally {
       setRunningKey(null);
     }
@@ -453,9 +481,9 @@ export function AgentPlanPanel({
             {openPanels.has("0") ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             <div>
               <strong>
-                <Search size={16} /> 0. Mapeado CIDR
+                <Search size={16} /> 0. Mapeado
               </strong>
-              <span>Ejecuta NetExec SMB contra el rango y guarda IP, hostname y dominio.</span>
+              <span>Ejecuta NetExec SMB y guarda IP, hostname y dominio.</span>
             </div>
           </button>
 
@@ -493,6 +521,40 @@ export function AgentPlanPanel({
                   >
                     {runningKey === "discovery" ? <RefreshCw size={16} /> : <Play size={16} />}
                     Ejecutar mapeado
+                  </button>
+                </div>
+              </div>
+              <div className="command-row inline-operation-command">
+                <div>
+                  <span>Hosts</span>
+                  <strong>/etc/hosts</strong>
+                </div>
+                <textarea
+                  className="inline-command"
+                  value={hostsFileCommand || "# Ejecuta primero el mapeado para detectar IP, dominio y hostname."}
+                  readOnly
+                />
+                <p>
+                  Agrega lineas como IP dominio hostname.dominio hostname solo si esa entrada exacta no existe.
+                </p>
+                <div className="command-actions">
+                  <button
+                    aria-label="Copiar comando de hosts"
+                    className="icon-button"
+                    disabled={!hostsFileCommand}
+                    type="button"
+                    onClick={() => handleCopy(hostsFileCommand)}
+                  >
+                    <Copy size={16} />
+                  </button>
+                  <button
+                    className="run-button"
+                    disabled={!hostsFileCommand || runningKey === "hosts-file"}
+                    type="button"
+                    onClick={handleRunHostsUpdate}
+                  >
+                    {runningKey === "hosts-file" ? <RefreshCw size={16} /> : <Play size={16} />}
+                    Agregar a /etc/hosts
                   </button>
                 </div>
               </div>
@@ -645,4 +707,25 @@ function commandKey(panelPhase: string, commandPhase: string, tool: string, inde
 
 function extractVariables(command: string) {
   return Array.from(new Set(command.match(/<[^>\s]+>/g) ?? []));
+}
+
+function buildHostsEntry(asset: Asset) {
+  const ipAddress = asset.ip_address.trim();
+  const hostname = asset.hostname?.trim();
+  const domain = asset.domain?.trim();
+  if (!ipAddress || !hostname) {
+    return null;
+  }
+  const names = Array.from(
+    new Set(
+      [domain, domain && !hostname.includes(".") ? `${hostname}.${domain}` : null, hostname].filter(
+        (name): name is string => Boolean(name),
+      ),
+    ),
+  );
+  return [ipAddress, ...names].join(" ");
+}
+
+function shellSingleQuote(value: string) {
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
