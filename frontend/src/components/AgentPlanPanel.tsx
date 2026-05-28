@@ -726,11 +726,13 @@ export function AgentPlanPanel({
                         .filter((template) => template.phase === phase.value)
                         .map((template, index) => {
                           const key = commandKey("template", phase.value, template.tool, index);
+                          const commandValue = targetCommands[key] ?? template.command;
                           return (
                             <CommandCard
+                              key={key}
                               command={template}
                               commandKey={key}
-                              commandValue={targetCommands[key] ?? template.command}
+                              commandValue={resolveCommandVariables(commandValue)}
                               isRunning={runningKey === key}
                               phaseLabel={phase.label}
                               onChange={(value) =>
