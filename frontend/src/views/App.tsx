@@ -68,7 +68,7 @@ export function App() {
             type="button"
             onClick={() => setActiveView("dashboard")}
           >
-            <Activity size={18} /> Dashboard
+            <Activity size={18} /> Panel de operaciones
           </button>
           <button
             className={activeView === "files" ? "active" : ""}
