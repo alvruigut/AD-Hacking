@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { buildAgentPlan, executeAgentCommand, type AgentPlan, type AuditPhase } from "../api/agent";
 import type { Asset } from "../api/assets";
+import { listWordlists, type WordlistEntry } from "../api/wordlists";
 
 type AgentPlanPanelProps = {
   assets: Asset[];
@@ -136,6 +137,7 @@ export function AgentPlanPanel({
   const [ipDc, setIpDc] = useState("");
   const [plansByPhase, setPlansByPhase] = useState<Record<string, AgentPlan>>({});
   const [targetCommands, setTargetCommands] = useState<Record<string, string>>({});
+  const [wordlists, setWordlists] = useState<WordlistEntry[]>([]);
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,6 +184,14 @@ export function AgentPlanPanel({
       })
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [selectedAsset, username]);
+  const userWordlists = useMemo(
+    () => wordlists.filter((entry) => entry.category === "Usuarios"),
+    [wordlists],
+  );
+  const passwordWordlists = useMemo(
+    () => wordlists.filter((entry) => entry.category !== "Usuarios"),
+    [wordlists],
+  );
   const hostsFileCommand = useMemo(() => {
     const lines = assets
       .map((asset) => buildHostsEntry(asset))
@@ -197,6 +207,24 @@ export function AgentPlanPanel({
   useEffect(() => {
     setDiscoveryCommand(`nxc smb ${discoveryTarget || (discoveryMode === "cidr" ? "10.10.10.0/24" : "10.10.10.10")}`);
   }, [discoveryMode, discoveryTarget]);
+
+  useEffect(() => {
+    listWordlists()
+      .then((nextWordlists) => {
+        setWordlists(nextWordlists);
+        const firstUserList = nextWordlists.find((entry) => entry.category === "Usuarios");
+        const firstGeneralList =
+          nextWordlists.find((entry) => entry.id === "rockyou") ??
+          nextWordlists.find((entry) => entry.category !== "Usuarios");
+        if (firstUserList) {
+          setUsersList((currentUsersList) => currentUsersList || firstUserList.path);
+        }
+        if (firstGeneralList) {
+          setWordlist((currentWordlist) => currentWordlist || firstGeneralList.path);
+        }
+      })
+      .catch((requestError: Error) => setError(requestError.message));
+  }, []);
 
   useEffect(() => {
     if (!targetIp && assetOptions.length > 0) {
@@ -442,11 +470,37 @@ export function AgentPlanPanel({
           </label>
           <label>
             Users list
-            <input value={usersList} onChange={(event) => setUsersList(event.target.value)} placeholder="<users_list>" />
+            <select
+              value={usersList}
+              disabled={userWordlists.length === 0}
+              onChange={(event) => setUsersList(event.target.value)}
+            >
+              <option value="">
+                {userWordlists.length === 0 ? "Sin diccionarios de usuarios" : "Seleccionar usuarios"}
+              </option>
+              {userWordlists.map((entry) => (
+                <option key={entry.id} value={entry.path}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             Wordlist
-            <input value={wordlist} onChange={(event) => setWordlist(event.target.value)} placeholder="<wordlist>" />
+            <select
+              value={wordlist}
+              disabled={passwordWordlists.length === 0}
+              onChange={(event) => setWordlist(event.target.value)}
+            >
+              <option value="">
+                {passwordWordlists.length === 0 ? "Sin diccionarios detectados" : "Seleccionar diccionario"}
+              </option>
+              {passwordWordlists.map((entry) => (
+                <option key={entry.id} value={entry.path}>
+                  {entry.category} - {entry.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             Fichero
