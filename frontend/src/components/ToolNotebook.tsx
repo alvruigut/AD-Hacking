@@ -185,6 +185,7 @@ export function ToolNotebook() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(["1. Reconocimiento"]));
   const [newTool, setNewTool] = useState<ToolTemplate>(createBlankTool);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
 
   useEffect(() => {
     setTools(loadToolLibrary());
@@ -243,6 +244,7 @@ export function ToolNotebook() {
     persist([normalized, ...tools]);
     setOpenGroups((current) => new Set(current).add(normalized.group));
     setNewTool(createBlankTool());
+    setIsComposerOpen(false);
   }
 
   function deleteTool(toolId: string) {
@@ -268,85 +270,101 @@ export function ToolNotebook() {
           <p className="eyebrow">Notebook AD</p>
           <h2>Biblioteca de herramientas</h2>
         </div>
+        <button className="run-button" type="button" onClick={() => setIsComposerOpen(true)}>
+          <Plus size={16} />
+          Agregar herramienta
+        </button>
       </div>
 
-      <article className="tool-composer">
-        <div className="tool-template-grid">
-          <label>
-            Fase
-            <select
-              value={newTool.group}
-              onChange={(event) =>
-                setNewTool((current) => normalizeTool({ ...current, group: event.target.value as ToolCategory }))
-              }
+      {isComposerOpen ? (
+        <article className="tool-composer">
+          <div className="tool-template-grid">
+            <label>
+              Fase
+              <select
+                value={newTool.group}
+                onChange={(event) =>
+                  setNewTool((current) => normalizeTool({ ...current, group: event.target.value as ToolCategory }))
+                }
+              >
+                {toolCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Tipo
+              <select
+                value={newTool.kind}
+                onChange={(event) =>
+                  setNewTool((current) => normalizeTool({ ...current, kind: event.target.value as ToolKind }))
+                }
+              >
+                <option value="command">Comando Kali</option>
+                <option value="note">Nota</option>
+              </select>
+            </label>
+            <label>
+              Nombre
+              <input
+                value={newTool.name}
+                onChange={(event) => setNewTool((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Kerbrute userenum"
+              />
+            </label>
+            <label>
+              Herramienta
+              <input
+                value={newTool.tool}
+                onChange={(event) => setNewTool((current) => ({ ...current, tool: event.target.value }))}
+                placeholder="kerbrute"
+              />
+            </label>
+            <label>
+              Donde va
+              <input
+                value={newTool.authorizedTarget}
+                onChange={(event) => setNewTool((current) => ({ ...current, authorizedTarget: event.target.value }))}
+                placeholder="<target_ip>, <ip_dc> o localhost"
+              />
+            </label>
+          </div>
+          {newTool.kind === "command" ? (
+            <>
+              <textarea
+                value={newTool.command}
+                onChange={(event) => setNewTool((current) => ({ ...current, command: event.target.value }))}
+                placeholder="Comando con variables: <target_ip>, <user>, <password>, <domain>"
+              />
+              <VariableChips command={newTool.command} />
+            </>
+          ) : null}
+          <textarea
+            className="notes-editor"
+            value={newTool.notes}
+            onChange={(event) => setNewTool((current) => ({ ...current, notes: event.target.value }))}
+            placeholder="Notas, permisos necesarios, evidencia esperada"
+          />
+          <div className="command-actions">
+            <button className="run-button" type="button" onClick={addTool}>
+              <Plus size={16} />
+              Guardar herramienta
+            </button>
+            <button
+              className="icon-button secondary"
+              type="button"
+              onClick={() => {
+                setNewTool(createBlankTool());
+                setIsComposerOpen(false);
+              }}
             >
-              {toolCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Tipo
-            <select
-              value={newTool.kind}
-              onChange={(event) =>
-                setNewTool((current) => normalizeTool({ ...current, kind: event.target.value as ToolKind }))
-              }
-            >
-              <option value="command">Comando Kali</option>
-              <option value="note">Nota</option>
-            </select>
-          </label>
-          <label>
-            Nombre
-            <input
-              value={newTool.name}
-              onChange={(event) => setNewTool((current) => ({ ...current, name: event.target.value }))}
-              placeholder="Kerbrute userenum"
-            />
-          </label>
-          <label>
-            Herramienta
-            <input
-              value={newTool.tool}
-              onChange={(event) => setNewTool((current) => ({ ...current, tool: event.target.value }))}
-              placeholder="kerbrute"
-            />
-          </label>
-          <label>
-            Donde va
-            <input
-              value={newTool.authorizedTarget}
-              onChange={(event) => setNewTool((current) => ({ ...current, authorizedTarget: event.target.value }))}
-              placeholder="<target_ip>, <ip_dc> o localhost"
-            />
-          </label>
-        </div>
-        {newTool.kind === "command" ? (
-          <>
-            <textarea
-              value={newTool.command}
-              onChange={(event) => setNewTool((current) => ({ ...current, command: event.target.value }))}
-              placeholder="Comando con variables: <target_ip>, <user>, <password>, <domain>"
-            />
-            <VariableChips command={newTool.command} />
-          </>
-        ) : null}
-        <textarea
-          className="notes-editor"
-          value={newTool.notes}
-          onChange={(event) => setNewTool((current) => ({ ...current, notes: event.target.value }))}
-          placeholder="Notas, permisos necesarios, evidencia esperada"
-        />
-        <div className="command-actions">
-          <button className="run-button" type="button" onClick={addTool}>
-            <Plus size={16} />
-            Agregar herramienta
-          </button>
-        </div>
-      </article>
+              <X size={15} />
+            </button>
+          </div>
+        </article>
+      ) : null}
 
       <div className="notebook-groups">
         {groupedTools().map((group) => (
