@@ -8,7 +8,6 @@ import { AssetTable } from "../components/AssetTable";
 import { FileBrowserPanel } from "../components/FileBrowserPanel";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { ToolNotebook } from "../components/ToolNotebook";
-import { ToolRunsPanel } from "../components/ToolRunsPanel";
 
 type ActiveView = "dashboard" | "files" | "tools" | "report" | "terminal";
 
@@ -119,15 +118,13 @@ export function App() {
               <>
                 <AgentPlanPanel
                   assets={assets}
+                  runs={runs}
                   workingDirectory={workingDirectory}
                   onWorkingDirectoryChange={setWorkingDirectory}
-                  onRunStarted={() =>
+                  onRefreshRuns={() =>
                     refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
                   }
-                />
-                <ToolRunsPanel
-                  runs={runs}
-                  onRefresh={() =>
+                  onRunStarted={() =>
                     refreshWorkspace().catch((requestError: Error) => setError(requestError.message))
                   }
                 />

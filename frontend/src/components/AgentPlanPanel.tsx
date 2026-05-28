@@ -1,15 +1,18 @@
 import { ChevronDown, ChevronRight, Copy, Play, RefreshCw, Route, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { buildAgentPlan, executeAgentCommand, type AgentPlan, type AuditPhase } from "../api/agent";
+import { buildAgentPlan, executeAgentCommand, type AgentPlan, type AuditPhase, type ToolRun } from "../api/agent";
 import type { Asset } from "../api/assets";
 import { listWordlists, type WordlistEntry } from "../api/wordlists";
+import { ToolRunsPanel } from "./ToolRunsPanel";
 import { loadToolLibrary, toolLibraryUpdatedEvent, type ToolTemplate } from "./ToolNotebook";
 
 type AgentPlanPanelProps = {
   assets: Asset[];
+  runs: ToolRun[];
   workingDirectory: string;
   onWorkingDirectoryChange: (path: string) => void;
+  onRefreshRuns: () => void;
   onRunStarted: () => void;
 };
 
@@ -118,8 +121,10 @@ const operationTemplates: OperationCommand[] = [
 
 export function AgentPlanPanel({
   assets,
+  runs,
   workingDirectory,
   onWorkingDirectoryChange,
+  onRefreshRuns,
   onRunStarted,
 }: AgentPlanPanelProps) {
   const [scope, setScope] = useState("10.10.10.0/24");
@@ -585,142 +590,150 @@ export function AgentPlanPanel({
         </div>
       </section>
 
-      <div className="agent-flow">
-        <section className="agent-step">
-          <button className="step-heading collapsible-heading" type="button" onClick={() => togglePanel("0")}>
-            {openPanels.has("0") ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-            <div>
-              <strong>
-                <Search size={16} /> 0. Mapeado
-              </strong>
-              <span>Ejecuta NetExec SMB y guarda IP, hostname y dominio.</span>
-            </div>
-          </button>
-
-          {openPanels.has("0") && (
-            <>
-              <div className="command-row inline-operation-command">
+      <div className="operations-workbench">
+        <div className="operation-command-column">
+          <div className="agent-flow">
+            <section className="agent-step">
+              <button className="step-heading collapsible-heading" type="button" onClick={() => togglePanel("0")}>
+                {openPanels.has("0") ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 <div>
-                  <span>Mapeado</span>
-                  <strong>nxc</strong>
+                  <strong>
+                    <Search size={16} /> 0. Mapeado
+                  </strong>
+                  <span>Ejecuta NetExec SMB y guarda IP, hostname y dominio.</span>
                 </div>
-                <textarea
-                  className="inline-command"
-                  value={discoveryCommand}
-                  onChange={(event) => setDiscoveryCommand(event.target.value)}
-                />
-                <p>
-                  {discoveryMode === "cidr"
-                    ? "Descubre equipos SMB dentro del bloque configurado."
-                    : "Mapea una unica maquina para CTF o laboratorios de host individual."}
-                </p>
-                <div className="command-actions">
-                  <button
-                    aria-label="Copiar comando de mapeado"
-                    className="icon-button"
-                    type="button"
-                    onClick={() => handleCopy(discoveryCommand)}
-                  >
-                    <Copy size={16} />
-                  </button>
-                  <button
-                    className="run-button"
-                    disabled={runningKey === "discovery"}
-                    type="button"
-                    onClick={handleRunDiscovery}
-                  >
-                    {runningKey === "discovery" ? <RefreshCw size={16} /> : <Play size={16} />}
-                    Ejecutar mapeado
-                  </button>
-                </div>
-              </div>
-              <div className="command-row inline-operation-command">
-                <div>
-                  <span>Hosts</span>
-                  <strong>/etc/hosts</strong>
-                </div>
-                <textarea
-                  className="inline-command"
-                  value={hostsFileCommand || "# Ejecuta primero el mapeado para detectar IP, dominio y hostname."}
-                  readOnly
-                />
-                <p>
-                  Agrega lineas como IP dominio hostname.dominio hostname solo si esa entrada exacta no existe.
-                </p>
-                <div className="command-actions">
-                  <button
-                    aria-label="Copiar comando de hosts"
-                    className="icon-button"
-                    disabled={!hostsFileCommand}
-                    type="button"
-                    onClick={() => handleCopy(hostsFileCommand)}
-                  >
-                    <Copy size={16} />
-                  </button>
-                  <button
-                    className="run-button"
-                    disabled={!hostsFileCommand || runningKey === "hosts-file"}
-                    type="button"
-                    onClick={handleRunHostsUpdate}
-                  >
-                    {runningKey === "hosts-file" ? <RefreshCw size={16} /> : <Play size={16} />}
-                    Agregar a /etc/hosts
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </section>
+              </button>
 
-        {auditPhases.map((phase) => (
-          <section className="agent-step" key={phase.value}>
-            <button
-              className="step-heading collapsible-heading"
-              type="button"
-              onClick={() => togglePanel(phase.value)}
-            >
-              {openPanels.has(phase.value) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-              <div>
-                <strong>
-                  <Route size={16} /> {phase.label}
-                </strong>
-                <span>{phase.detail}</span>
-              </div>
-            </button>
+              {openPanels.has("0") && (
+                <>
+                  <div className="command-row inline-operation-command">
+                    <div>
+                      <span>Mapeado</span>
+                      <strong>nxc</strong>
+                    </div>
+                    <textarea
+                      className="inline-command"
+                      value={discoveryCommand}
+                      onChange={(event) => setDiscoveryCommand(event.target.value)}
+                    />
+                    <p>
+                      {discoveryMode === "cidr"
+                        ? "Descubre equipos SMB dentro del bloque configurado."
+                        : "Mapea una unica maquina para CTF o laboratorios de host individual."}
+                    </p>
+                    <div className="command-actions">
+                      <button
+                        aria-label="Copiar comando de mapeado"
+                        className="icon-button"
+                        type="button"
+                        onClick={() => handleCopy(discoveryCommand)}
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <button
+                        className="run-button"
+                        disabled={runningKey === "discovery"}
+                        type="button"
+                        onClick={handleRunDiscovery}
+                      >
+                        {runningKey === "discovery" ? <RefreshCw size={16} /> : <Play size={16} />}
+                        Ejecutar mapeado
+                      </button>
+                    </div>
+                  </div>
+                  <div className="command-row inline-operation-command">
+                    <div>
+                      <span>Hosts</span>
+                      <strong>/etc/hosts</strong>
+                    </div>
+                    <textarea
+                      className="inline-command"
+                      value={hostsFileCommand || "# Ejecuta primero el mapeado para detectar IP, dominio y hostname."}
+                      readOnly
+                    />
+                    <p>
+                      Agrega lineas como IP dominio hostname.dominio hostname solo si esa entrada exacta no existe.
+                    </p>
+                    <div className="command-actions">
+                      <button
+                        aria-label="Copiar comando de hosts"
+                        className="icon-button"
+                        disabled={!hostsFileCommand}
+                        type="button"
+                        onClick={() => handleCopy(hostsFileCommand)}
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <button
+                        className="run-button"
+                        disabled={!hostsFileCommand || runningKey === "hosts-file"}
+                        type="button"
+                        onClick={handleRunHostsUpdate}
+                      >
+                        {runningKey === "hosts-file" ? <RefreshCw size={16} /> : <Play size={16} />}
+                        Agregar a /etc/hosts
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
 
-            {openPanels.has(phase.value) && (
-              <>
-                <div className="command-list phase-command-list">
-                  {toolOperationTemplates
-                    .filter((template) => template.phase === phase.value)
-                    .map((template, index) => {
-                      const key = commandKey("template", phase.value, template.tool, index);
-                      return (
-                        <CommandCard
-                          command={template}
-                          commandKey={key}
-                          commandValue={targetCommands[key] ?? template.command}
-                          isRunning={runningKey === key}
-                          phaseLabel={phase.label}
-                          onChange={(value) =>
-                            setTargetCommands((current) => ({
-                              ...current,
-                              [key]: value,
-                            }))
-                          }
-                          onCopy={() => handleCopy(targetCommands[key] ?? template.command)}
-                          onRun={() => handleRunTargetCommand(key, template.phase, template.command)}
-                        />
-                      );
-                    })}
-                </div>
-                {toolOperationTemplates.filter((template) => template.phase === phase.value).length === 0 ? (
-                  <p className="empty-text">Agrega herramientas a esta fase desde la pestaña Tools.</p>
-                ) : null}
-              </>
-            )}
-          </section>
-        ))}
+            {auditPhases.map((phase) => (
+              <section className="agent-step" key={phase.value}>
+                <button
+                  className="step-heading collapsible-heading"
+                  type="button"
+                  onClick={() => togglePanel(phase.value)}
+                >
+                  {openPanels.has(phase.value) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  <div>
+                    <strong>
+                      <Route size={16} /> {phase.label}
+                    </strong>
+                    <span>{phase.detail}</span>
+                  </div>
+                </button>
+
+                {openPanels.has(phase.value) && (
+                  <>
+                    <div className="command-list phase-command-list">
+                      {toolOperationTemplates
+                        .filter((template) => template.phase === phase.value)
+                        .map((template, index) => {
+                          const key = commandKey("template", phase.value, template.tool, index);
+                          return (
+                            <CommandCard
+                              command={template}
+                              commandKey={key}
+                              commandValue={targetCommands[key] ?? template.command}
+                              isRunning={runningKey === key}
+                              phaseLabel={phase.label}
+                              onChange={(value) =>
+                                setTargetCommands((current) => ({
+                                  ...current,
+                                  [key]: value,
+                                }))
+                              }
+                              onCopy={() => handleCopy(targetCommands[key] ?? template.command)}
+                              onRun={() => handleRunTargetCommand(key, template.phase, template.command)}
+                            />
+                          );
+                        })}
+                    </div>
+                    {toolOperationTemplates.filter((template) => template.phase === phase.value).length === 0 ? (
+                      <p className="empty-text">Agrega herramientas a esta fase desde la pestaña Tools.</p>
+                    ) : null}
+                  </>
+                )}
+              </section>
+            ))}
+          </div>
+        </div>
+
+        <aside className="operation-output-column">
+          <ToolRunsPanel runs={runs} onRefresh={onRefreshRuns} />
+        </aside>
       </div>
 
       {error && <div className="state-panel error">{error}</div>}

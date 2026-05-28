@@ -235,6 +235,40 @@ button {
   gap: 16px;
 }
 
+.operations-workbench {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.1fr) minmax(360px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.operation-command-column,
+.operation-output-column {
+  min-width: 0;
+}
+
+.operation-command-column {
+  max-height: calc(100vh - 230px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.operation-output-column {
+  position: sticky;
+  top: 18px;
+}
+
+.operation-output-column .runs-panel {
+  max-height: calc(100vh - 230px);
+  overflow: hidden;
+}
+
+.operation-output-column .run-list {
+  max-height: calc(100vh - 330px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .operation-params {
   border: 1px solid rgba(45, 212, 191, 0.16);
   border-radius: 8px;
@@ -1292,6 +1326,7 @@ button {
   }
 
   .agent-form,
+  .operations-workbench,
   .finding-editor-grid,
   .tool-template-grid,
   .file-browser-grid,
